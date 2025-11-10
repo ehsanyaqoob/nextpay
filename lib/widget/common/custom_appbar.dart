@@ -1,312 +1,244 @@
-
 import 'package:nextpay/export.dart';
-class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
-  final String? title;
+class MyAppBar extends StatelessWidget implements PreferredSizeWidget {
+  final String title;
+  final bool showBackButton;
+  final VoidCallback? onBackPressed;
   final List<Widget>? actions;
-  final VoidCallback? onBackTap;
-  final bool centerTitle;
-  final bool showLeading;
-  final double textSize;
-  final TextAlign? textAlign;
-  final bool showNotificationIcon;
-  final bool showAvatarIcon;
-  final bool showBasketIcon;
-  final bool showMessageIcon;
-  final VoidCallback? onNotificationTap;
-  final VoidCallback? onAvatarTap;
-  final VoidCallback? onBasketTap;
-  final VoidCallback? onMessageTap;
+  final Color? backgroundColor;
+  final Color? titleColor;
   final double elevation;
-  final Color? backButtonColor;
-  final String? subtitle;
-  final String? logoUrl;
-  final bool showShareIcon;
-  final VoidCallback? onShareTap;
+  final double? height;
+  final TextStyle? titleStyle;
+  final bool centerTitle;
+  final PreferredSizeWidget? bottom;
+  final Widget? leading;
+  final double? leadingWidth;
+  final bool automaticallyImplyLeading;
 
-  const CustomAppBar({
+  const MyAppBar({
     super.key,
-    this.title,
+    required this.title,
+    this.showBackButton = true,
+    this.onBackPressed,
     this.actions,
-    this.onBackTap,
-    this.centerTitle = true,
-    this.showLeading = false,
-    this.textSize = 18,
-    this.textAlign,
-    this.showNotificationIcon = false,
-    this.showAvatarIcon = false,
-    this.showBasketIcon = false,
-    this.showMessageIcon = false,
-    this.onNotificationTap,
-    this.onAvatarTap,
-    this.onBasketTap,
-    this.onMessageTap,
+    this.backgroundColor,
+    this.titleColor,
     this.elevation = 0,
-    this.backButtonColor,
-    this.subtitle,
-    this.logoUrl,
-    this.showShareIcon = false,
-    this.onShareTap,
+    this.height,
+    this.titleStyle,
+    this.centerTitle = true,
+    this.bottom,
+    this.leading,
+    this.leadingWidth,
+    this.automaticallyImplyLeading = true,
   });
 
   @override
-  Size get preferredSize => const Size.fromHeight(80);
+  Widget build(BuildContext context) {
+    return AppBar(
+      backgroundColor: backgroundColor ?? ThemeColors.appBarBackground(context),
+      elevation: elevation,
+      centerTitle: centerTitle,
+      automaticallyImplyLeading: false,
+      toolbarHeight: height ?? 46,
+      leadingWidth: leadingWidth ?? 46,
+      leading: leading ??
+          (showBackButton && automaticallyImplyLeading
+              ? _buildBackButton(context)
+              : null),
+      title: MyText(
+        text: title,
+        color: titleColor ?? ThemeColors.appBarText(context),
+        size: 18,
+        weight: FontWeight.w600,
+      ),
+      actions: actions,
+      bottom: bottom,
+    );
+  }
 
   Widget _buildBackButton(BuildContext context) {
-    return Container(
-      width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        color: context.primary.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: IconButton(
-        onPressed: onBackTap ?? () => Navigator.of(context).pop(),
-        icon: Icon(
-          Icons.arrow_back,
-          color: backButtonColor ?? context.primary,
+    return InkWell(
+      onTap: onBackPressed ?? () => Navigator.of(context).pop(),
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Icon(
+          Icons.arrow_back_ios_new,
+          color: ThemeColors.appBarText(context),
           size: 20,
-        ),
-        padding: EdgeInsets.zero,
-      ),
-    );
-  }
-
-  Widget _buildIconButton({
-    required BuildContext context,
-    required IconData icon,
-    required VoidCallback? onTap,
-    required double size,
-    EdgeInsets padding = const EdgeInsets.symmetric(horizontal: 4),
-    bool isAvatar = false,
-    String? tooltip,
-  }) {
-    return Padding(
-      padding: padding,
-      child: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: context.primary.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: IconButton(
-          onPressed: onTap,
-          icon: Icon(
-            icon,
-            size: size,
-            color: context.primary,
-          ),
-          padding: EdgeInsets.zero,
-          tooltip: tooltip,
         ),
       ),
     );
   }
 
-  List<Widget> _buildOptionalIcons(BuildContext context) {
-    final icons = <Widget>[];
+  @override
+  Size get preferredSize => Size.fromHeight(height ?? 56);
+}
 
-    if (showMessageIcon) {
-      icons.add(
-        _buildIconButton(
-          context: context,
-          icon: Icons.message,
-          onTap: onMessageTap,
-          size: 20,
-          tooltip: 'Messages',
-        ),
-      );
-    }
+// Extended version with more features
+class MyAppBarExtended extends StatelessWidget implements PreferredSizeWidget {
+  final String title;
+  final String? subtitle;
+  final bool showBackButton;
+  final VoidCallback? onBackPressed;
+  final List<Widget>? actions;
+  final Color? backgroundColor;
+  final double elevation;
+  final double? height;
+  final bool centerTitle;
+  final Widget? leading;
+  final VoidCallback? onLeadingPressed;
+  final bool hasSearchBar;
+  final TextEditingController? searchController;
+  final Function(String)? onSearchChanged;
+  final bool showDivider;
 
-    if (showNotificationIcon) {
-      icons.add(
-        _buildIconButton(
-          context: context,
-          icon: Icons.notifications,
-          onTap: onNotificationTap,
-          size: 20,
-          tooltip: 'Notifications',
-        ),
-      );
-    }
+  const MyAppBarExtended({
+    super.key,
+    required this.title,
+    this.subtitle,
+    this.showBackButton = true,
+    this.onBackPressed,
+    this.actions,
+    this.backgroundColor,
+    this.elevation = 0.5,
+    this.height,
+    this.centerTitle = false,
+    this.leading,
+    this.onLeadingPressed,
+    this.hasSearchBar = false,
+    this.searchController,
+    this.onSearchChanged,
+    this.showDivider = true,
+  });
 
-    if (showAvatarIcon) {
-      icons.add(
-        _buildIconButton(
-          context: context,
-          icon: Icons.person,
-          onTap: onAvatarTap,
-          size: 20,
-          tooltip: 'Profile',
-        ),
-      );
-    }
-
-    if (showShareIcon) {
-      icons.add(
-        _buildIconButton(
-          context: context,
-          icon: Icons.share,
-          onTap: onShareTap,
-          size: 20,
-          tooltip: 'Share',
-        ),
-      );
-    }
-
-    return icons;
-  }
-
-  Widget _buildLogo(BuildContext context) {
-    if (logoUrl == null) return const SizedBox.shrink();
-    
-    return Container(
-      width: 52,
-      height: 52,
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 12,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: CommonImageView(
-        url: logoUrl!,
-        fit: BoxFit.contain,
-        radius: 8,
-      ),
-    );
-  }
-
-  Widget _buildTitleWithSubtitle(BuildContext context) {
-    if (title == null) return const SizedBox.shrink();
-    
+  @override
+  Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        MyText(
-          text: title!,
-          size: textSize,
-          color: context.text,
-          weight: FontWeight.w700,
-          maxLines: 1,
-          textOverflow: TextOverflow.ellipsis,
-        ),
-        if (subtitle != null) ...[
-          const Gap(6),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: context.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.location_on, color: context.primary, size: 12),
-                const Gap(4),
+        AppBar(
+          backgroundColor:
+              backgroundColor ?? ThemeColors.appBarBackground(context),
+          elevation: elevation,
+          centerTitle: centerTitle,
+          automaticallyImplyLeading: false,
+          toolbarHeight: height ?? (subtitle != null ? 70 : 56),
+          leadingWidth: 56,
+          leading: leading ??
+              (showBackButton
+                  ? InkWell(
+                      onTap: onLeadingPressed ??
+                          onBackPressed ??
+                          () => Navigator.of(context).pop(),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Icon(
+                          Icons.arrow_back_ios_new,
+                          color: ThemeColors.appBarText(context),
+                          size: 20,
+                        ),
+                      ),
+                    )
+                  : null),
+          title: Column(
+            crossAxisAlignment: centerTitle
+                ? CrossAxisAlignment.center
+                : CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              MyText(
+                text: title,
+                color: ThemeColors.appBarText(context),
+                size: 18,
+                weight: FontWeight.w600,
+              ),
+              if (subtitle != null) ...[
+                4.height,
                 MyText(
                   text: subtitle!,
-                  color: context.primary,
+                  color: ThemeColors.subtitle(context),
                   size: 12,
-                  weight: FontWeight.w600,
+                  weight: FontWeight.w400,
                 ),
               ],
-            ),
+            ],
           ),
-        ],
+          actions: actions,
+        ),
+        if (hasSearchBar)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: _buildSearchBar(context),
+          ),
+        if (showDivider)
+          Divider(
+            color: ThemeColors.divider(context),
+            height: 1,
+            thickness: 0.5,
+          ),
       ],
     );
   }
 
-  Widget _buildSimpleTitle(BuildContext context) {
-    if (title == null) return const SizedBox.shrink();
-    
-    return MyText(
-      text: title!,
-      size: textSize,
-      color: context.text,
-      weight: FontWeight.w700,
-      textAlign: textAlign,
-      maxLines: 1,
-      textOverflow: TextOverflow.ellipsis,
-    );
-  }
-
-  List<Widget> _buildActionIcons(BuildContext context) {
-    final optionalIcons = _buildOptionalIcons(context);
-    final customActions = actions ?? [];
-    return [...optionalIcons, ...customActions];
-  }
-
-  Widget _buildLeagueStyleHeader(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: BoxDecoration(
-        color: context.scaffoldBackground,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+  Widget _buildSearchBar(BuildContext context) {
+    return TextField(
+      controller: searchController,
+      onChanged: onSearchChanged,
+      decoration: InputDecoration(
+        hintText: 'Search...',
+        hintStyle: TextStyle(color: ThemeColors.hint(context)),
+        prefixIcon: Icon(
+          Icons.search,
+          color: ThemeColors.hint(context),
+          size: 20,
+        ),
+        suffixIcon: searchController?.text.isNotEmpty ?? false
+            ? InkWell(
+                onTap: () {
+                  searchController?.clear();
+                  onSearchChanged?.call('');
+                },
+                child: Icon(
+                  Icons.close,
+                  color: ThemeColors.hint(context),
+                  size: 20,
+                ),
+              )
+            : null,
+        filled: true,
+        fillColor: ThemeColors.inputBackground(context),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(
+            color: ThemeColors.inputBorder(context),
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          if (showLeading) _buildBackButton(context),
-          if (showLeading && logoUrl != null) const Gap(16),
-          if (logoUrl != null) _buildLogo(context),
-          if (logoUrl != null) const Gap(16),
-          Expanded(
-            child: _buildTitleWithSubtitle(context),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(
+            color: ThemeColors.inputBorder(context),
           ),
-          ..._buildActionIcons(context),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStandardHeader(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: BoxDecoration(
-        color: context.scaffoldBackground,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(
+            color: ThemeColors.focused(context),
+            width: 1.5,
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          if (showLeading) _buildBackButton(context),
-          if (showLeading) const Gap(16),
-          Expanded(
-            child: Center(
-              child: _buildSimpleTitle(context),
-            ),
-          ),
-          if (showLeading) const SizedBox(width: 44),
-          ..._buildActionIcons(context),
-        ],
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       ),
     );
   }
 
   @override
-  Widget build(BuildContext context) {
-    final hasLogoOrSubtitle = logoUrl != null || subtitle != null;
-    
-    return hasLogoOrSubtitle 
-        ? _buildLeagueStyleHeader(context)
-        : _buildStandardHeader(context);
+  Size get preferredSize {
+    double baseHeight = height ?? (subtitle != null ? 70 : 56);
+    if (hasSearchBar) baseHeight += 56;
+    if (showDivider) baseHeight += 1;
+    return Size.fromHeight(baseHeight);
   }
 }

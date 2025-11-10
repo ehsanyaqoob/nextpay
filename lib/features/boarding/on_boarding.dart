@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
-import 'package:nextpay/core/utils/route_config.dart';
+
+import 'package:nextpay/core/utils/app_routes.dart';
 import 'package:nextpay/export.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 
@@ -214,13 +214,23 @@ class _OnBoardingScreenState extends State<OnBoardingScreen> {
     }
   }
 
-  void _skipOnboarding() {
-    // Navigate to home
+  Future<void> _skipOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('onboardingSeen', true);
+    if (!mounted) return;
+      Navigator.of(
+        context,
+      ).pushNamedAndRemoveUntil(AppLinks.home, (_) => false);
   }
 
-  void _getStarted() {
-  // Use the navigation extension from context
-      context.nav.goToHome();  }
+  Future<void> _getStarted() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('onboardingSeen', true);
+    if (!mounted) return;
+      Navigator.of(
+        context,
+      ).pushNamedAndRemoveUntil(AppLinks.home, (_) => false);
+  }
 }
 
 class OnboardingItem {

@@ -1,4 +1,5 @@
 import 'package:nextpay/export.dart';
+import 'package:nextpay/widget/common/toasts.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -8,10 +9,26 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  DateTime? _lastPressed;
+
+  Future<bool> _onWillPop() async {
+    DateTime now = DateTime.now();
+    if (_lastPressed == null ||
+        now.difference(_lastPressed!) > const Duration(seconds: 2)) {
+      _lastPressed = now;
+      AppToast.show("Press back again to exit", context);
+      return false;
+    }
+    SystemNavigator.pop();
+    return true;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: context.scaffoldBackground,
+    return WillPopScope(
+      onWillPop: _onWillPop,
+
+      child: Scaffold(backgroundColor: context.primary),
     );
   }
 }

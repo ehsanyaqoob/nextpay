@@ -1,10 +1,15 @@
 export 'package:flutter/material.dart';
 export 'package:get_storage/get_storage.dart';
+export 'package:nextpay/features/screens/splash/splash_screen.dart';
+export 'package:nextpay/features/boarding/on_boarding.dart';
+export 'package:nextpay/features/home/bottom_nav.dart';
 
-export 'package:nextpay/core/services/app_lifecycle.dart';
-export 'package:nextpay/core/utils/routes.dart';
-export 'package:nextpay/providers/splash_provider.dart';
+export 'package:nextpay/providers/auth_provider.dart';
+export 'package:nextpay/widget/common/custom_appbar.dart';
+export 'package:nextpay/widget/common/my_textfeild.dart';
 export 'package:provider/provider.dart';
+export 'package:nextpay/core/services/app_lifecycle.dart';
+export 'package:nextpay/providers/splash_provider.dart';
 export 'package:shared_preferences/shared_preferences.dart';
 export 'theme/theme_provider.dart';
 export 'package:flutter/services.dart';
@@ -30,3 +35,7 @@ export 'package:internet_connection_checker/internet_connection_checker.dart';
 export 'package:nextpay/core/services/api_endpoint/config.dart';
 export 'package:nextpay/core/services/api_services/api_response.dart';
 export 'package:nextpay/core/services/api_services/networ_exception.dart';
+
+
+export 'package:bounce/bounce.dart';
+export 'package:nextpay/widget/common/toasts.dart';

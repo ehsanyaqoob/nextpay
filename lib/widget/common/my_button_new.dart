@@ -187,7 +187,56 @@ class MyButtonWithIcon extends StatelessWidget {
         : Colors.black.withOpacity(0.1);
   }
 }
+// Primary Button - Uses theme colors automatically
+class PrimaryButton extends StatelessWidget {
+  final String text;
+  final VoidCallback? onPressed;
+  final bool isLoading;
+  
+  const PrimaryButton({
+    super.key,
+    required this.text,
+    this.onPressed,
+    this.isLoading = false,
+  });
 
+  @override
+  Widget build(BuildContext context) {
+    return MyButton(
+      buttonText: text,
+      onTap: onPressed,
+      backgroundColor: context.buttonBackground,
+      // fontColor automatically uses ThemeColors.buttonText (white)
+      isLoading: isLoading,
+    );
+  }
+}
+
+// Secondary Button - Outline style
+class SecondaryButton extends StatelessWidget {
+  final String text;
+  final VoidCallback? onPressed;
+  final bool isLoading;
+  
+  const SecondaryButton({
+    super.key,
+    required this.text,
+    this.onPressed,
+    this.isLoading = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return MyButton(
+      buttonText: text,
+      onTap: onPressed,
+      backgroundColor: Colors.transparent,
+      outlineColor: context.buttonBackground,
+      fontColor: context.buttonBackground,
+      isLoading: isLoading,
+    );
+  }
+}
 class MyButton extends StatelessWidget {
   final String buttonText;
   final VoidCallback? onTap;
@@ -222,7 +271,7 @@ class MyButton extends StatelessWidget {
     this.fontColor,
     this.fontSize,
     this.outlineColor,
-    this.radius = 16.0,
+    this.radius = 18.0,
     this.choiceIcon,
     this.isLeft = false,
     this.mHoriz = 0,
@@ -246,10 +295,14 @@ class MyButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bgColor = isActive
-        ? backgroundColor ?? context.buttonBackground
-        : context.buttonDisabled;
+        ? backgroundColor ?? ThemeColors.buttonBackground(context)
+        : ThemeColors.buttonDisabled(context);
 
-    final txtColor = fontColor ?? context.buttonText;
+    // FIX: Use theme-based text color unless explicitly overridden
+    final txtColor = isActive
+        ? (fontColor ?? ThemeColors.buttonText(context))
+        : ThemeColors.buttonText(context).withOpacity(0.5);
+
     final Color effectiveLoaderColor =
         loaderColor ?? _getLoaderColorForButton(bgColor, context);
 
@@ -265,12 +318,12 @@ class MyButton extends StatelessWidget {
       decoration: BoxDecoration(
         color: hasGradient ? null : bgColor,
         gradient: hasGradient ? _getPrimaryGradient(context) : null,
-        border: Border.all(color: outlineColor ?? context.border),
+        border: Border.all(color: outlineColor ?? ThemeColors.border(context)),
         borderRadius: BorderRadius.circular(radius),
         boxShadow: hasShadow
             ? [
                 BoxShadow(
-                  color: context.shadow,
+                  color: ThemeColors.shadow(context),
                   offset: const Offset(0, 4),
                   blurRadius: 8,
                 ),
@@ -305,13 +358,15 @@ class MyButton extends StatelessWidget {
                             color: txtColor,
                           ),
                         ),
-                      MyText(
-                        text: buttonText,
-                        fontFamily: AppFonts.Inter,
-                        size: fontSize ?? 16,
-                        letterSpacing: 0.5,
-                        color: txtColor,
-                        weight: fontWeight ?? FontWeight.w600,
+                      Flexible(
+                        child: MyText(
+                          text: buttonText,
+                          fontFamily: AppFonts.Inter,
+                          size: fontSize ?? 16,
+                          letterSpacing: 0.5,
+                          color: txtColor, // Now properly uses theme
+                          weight: fontWeight ?? FontWeight.w600,
+                        ),
                       ),
                       if (hasIcon && choiceIcon != null && !isLeft)
                         Padding(
@@ -336,10 +391,10 @@ class MyButton extends StatelessWidget {
         size: loaderSize,
         dotSize: loaderDotSize,
         color: loaderColor,
-        useContainer: useLoaderContainer,
-        containerColor: loaderContainerColor ?? 
-            _getLoaderContainerColor(bgColor, context),
-        containerPadding: loaderContainerPadding,
+        // useContainer: useLoaderContainer,
+        // containerColor: loaderContainerColor ?? 
+        //     _getLoaderContainerColor(bgColor, context),
+        // containerPadding: loaderContainerPadding,
       );
     } catch (e) {
       return NextPayLoader(
@@ -358,6 +413,9 @@ class MyButton extends StatelessWidget {
       'favorite': Icons.favorite,
       'search': Icons.search,
       'arrow_forward': Icons.arrow_forward,
+      'arrow_back': Icons.arrow_back,
+      'check': Icons.check,
+      'close': Icons.close,
     };
     return iconMap[path] ?? Icons.help_outline;
   }
@@ -365,8 +423,8 @@ class MyButton extends StatelessWidget {
   LinearGradient _getPrimaryGradient(BuildContext context) {
     return LinearGradient(
       colors: [
-        // context.primary,
-        // context.primary.withOpacity(0.8),
+        ThemeColors.primary(context),
+        ThemeColors.primary(context).withOpacity(0.8),
       ],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,

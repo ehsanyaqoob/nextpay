@@ -17,7 +17,7 @@ class AppToast {
 
     _overlayEntry = OverlayEntry(
       builder: (context) => Positioned(
-        bottom: 70,
+        top: 70,
         left: 24,
         right: 24,
         child: Material(

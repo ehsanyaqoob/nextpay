@@ -1,299 +1,197 @@
-// import 'package:nutri/constants/export.dart';
+import 'package:flutter/material.dart';
+import 'package:nextpay/export.dart';
 
-// class CustomCheckbox extends StatefulWidget {
-//   final String? text;
-//   final String? text2;
-//   final Color? textColor; // dynamic text color
-//   final Color? activeColor; // when checked
-//   final Color? inactiveColor; // when unchecked
-//   final Color? borderColor; // border color
-//   final Color? checkColor; // check icon color
-//   final Function(bool) onChanged;
-//   final bool? value;
+class CustomCheckbox extends StatefulWidget {
+  final String? text;
+  final String? text2;
+  final Color? textColor;
+  final Color? activeColor;
+  final Color? inactiveColor;
+  final Color? borderColor;
+  final Color? checkColor;
+  final Function(bool) onChanged;
+  final bool? value;
+  final bool useThemeColors;
 
-//   const CustomCheckbox({
-//     super.key,
-//     this.text,
-//     this.text2,
-//     this.textColor,
-//     this.activeColor,
-//     this.inactiveColor,
-//     this.borderColor,
-//     this.checkColor, // new parameter for check icon color
-//     required this.onChanged,
-//     this.value,
-//   });
+  const CustomCheckbox({
+    super.key,
+    this.text,
+    this.text2,
+    this.textColor,
+    this.activeColor,
+    this.inactiveColor,
+    this.borderColor,
+    this.checkColor,
+    required this.onChanged,
+    this.value,
+    this.useThemeColors = true,
+  });
 
-//   @override
-//   _CustomCheckboxState createState() => _CustomCheckboxState();
-// }
+  @override
+  _CustomCheckboxState createState() => _CustomCheckboxState();
+}
 
-// class _CustomCheckboxState extends State<CustomCheckbox> {
-//   late bool _isChecked;
+class _CustomCheckboxState extends State<CustomCheckbox> {
+  late bool _isChecked;
 
-//   @override
-//   void initState() {
-//     super.initState();
-//     _isChecked = widget.value ?? false;
-//   }
+  @override
+  void initState() {
+    super.initState();
+    _isChecked = widget.value ?? false;
+  }
 
-//   @override
-//   void didUpdateWidget(CustomCheckbox oldWidget) {
-//     super.didUpdateWidget(oldWidget);
-//     if (widget.value != null && widget.value != _isChecked) {
-//       setState(() {
-//         _isChecked = widget.value!;
-//       });
-//     }
-//   }
+  @override
+  void didUpdateWidget(CustomCheckbox oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.value != null && widget.value != _isChecked) {
+      setState(() {
+        _isChecked = widget.value!;
+      });
+    }
+  }
 
-//   @override
-//   Widget build(BuildContext context) {
-//     final isArabic = Get.locale?.languageCode == 'ar';
+  @override
+  Widget build(BuildContext context) {
+    /// Resolve colors using theme system
+    final Color activeColor = widget.useThemeColors 
+        ? context.primary
+        : widget.activeColor ?? AppColors.primary;
+    
+    final Color inactiveColor = widget.useThemeColors
+        ? context.surface
+        : widget.inactiveColor ?? AppColors.surface;
+    
+    final Color borderColor = widget.useThemeColors
+        ? context.border
+        : widget.borderColor ?? AppColors.borderLight;
+    
+    final Color textColor = widget.useThemeColors
+        ? context.text
+        : widget.textColor ?? AppColors.textPrimary;
+    
+    final Color checkColor = widget.useThemeColors
+        ? context.buttonText
+        : widget.checkColor ?? Colors.white;
 
-//     /// Resolve dynamic colors
-//     final Color activeColor = widget.activeColor ?? kPrimaryColor;
-//     final Color inactiveColor =
-//         widget.inactiveColor ?? kDynamicScaffoldBackground(context);
-//     final Color borderColor = widget.borderColor ?? kDynamicBorder(context);
-//     final Color textColor = widget.textColor ?? kDynamicText(context);
-//     final Color checkColor = widget.checkColor ?? kDynamicIconOnPrimary(context) ?? Colors.white;
+    final checkbox = Bounce(
+      onTap: () {
+        setState(() {
+          _isChecked = !_isChecked;
+        });
+        widget.onChanged(_isChecked);
+      },
+      child: Container(
+        width: 20,
+        height: 20,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8.0),
+          color: _isChecked ? activeColor : inactiveColor,
+          border: Border.all(
+            color: _isChecked ? activeColor : borderColor,
+            width: 1.5,
+          ),
+          boxShadow: _isChecked ? [
+            BoxShadow(
+              color: activeColor.withOpacity(0.3),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ] : null,
+        ),
+        child: _isChecked
+            ? Icon(
+                Icons.check,
+                color: checkColor,
+                size: 16,
+              )
+            : null,
+      ),
+    );
 
-//     final checkbox = Bounce(
-//       onTap: () {
-//         setState(() {
-//           _isChecked = !_isChecked;
-//         });
-//         widget.onChanged(_isChecked);
-//       },
-//       child: Container(
-//         width: 20,
-//         height: 20,
-//         decoration: BoxDecoration(
-//           borderRadius: BorderRadius.circular(8.0),
-//           color: _isChecked ? activeColor : inactiveColor,
-//           border: Border.all(
-//             color: _isChecked ? activeColor : borderColor,
-//             width: 1,
-//           ),
-//         ),
-//         child: _isChecked
-//             ? Icon(Icons.check, color: checkColor, size: 16)
-//             : null,
-//       ),
-//     );
+    // Build text widget with proper theme styling
+    Widget? textWidget;
+    if (widget.text != null || widget.text2 != null) {
+      textWidget = Text.rich(
+        TextSpan(
+          children: [
+            if (widget.text != null)
+              TextSpan(
+                text: widget.text,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: textColor,
+                  fontWeight: FontWeight.w400,
+                  height: 1.4,
+                ),
+              ),
+            if (widget.text2 != null)
+              TextSpan(
+                text: widget.text2,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: textColor,
+                  fontWeight: FontWeight.w600,
+                  height: 1.4,
+                ),
+              ),
+          ],
+        ),
+        textAlign: TextAlign.start,
+      );
+    }
 
-//     return GestureDetector(
-//       onTap: () {
-//         setState(() {
-//           _isChecked = !_isChecked;
-//         });
-//         widget.onChanged(_isChecked);
-//       },
-//       child: Row(
-//         mainAxisAlignment: MainAxisAlignment.center,
-//         mainAxisSize: MainAxisSize.min,
-//         children: isArabic
-//             ? [
-//                 if (widget.text != null || widget.text2 != null) ...[
-//                   Text.rich(
-//                     TextSpan(
-//                       children: [
-//                         if (widget.text != null)
-//                           TextSpan(
-//                             text: widget.text,
-//                             style: TextStyle(
-//                               fontSize: 12,
-//                               color: textColor,
-//                               fontWeight: FontWeight.w400,
-//                             ),
-//                           ),
-//                         if (widget.text2 != null)
-//                           TextSpan(
-//                             text: widget.text2,
-//                             style: TextStyle(
-//                               fontSize: 14,
-//                               color: textColor,
-//                               fontWeight: FontWeight.w400,
-//                             ),
-//                           ),
-//                       ],
-//                     ),
-//                   ),
-//                   const SizedBox(width: 10),
-//                 ],
-//                 checkbox,
-//               ]
-//             : [
-//                 checkbox,
-//                 if (widget.text != null || widget.text2 != null) ...[
-//                   const SizedBox(width: 10),
-//                   Text.rich(
-//                     TextSpan(
-//                       children: [
-//                         if (widget.text != null)
-//                           TextSpan(
-//                             text: widget.text,
-//                             style: TextStyle(
-//                               fontSize: 12,
-//                               color: textColor,
-//                               fontWeight: FontWeight.w400,
-//                             ),
-//                           ),
-//                         if (widget.text2 != null)
-//                           TextSpan(
-//                             text: widget.text2,
-//                             style: TextStyle(
-//                               fontSize: 14,
-//                               color: textColor,
-//                               fontWeight: FontWeight.w400,
-//                             ),
-//                           ),
-//                       ],
-//                     ),
-//                   ),
-//                 ],
-//               ],
-//       ),
-//     );
-//   }
-// }
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _isChecked = !_isChecked;
+        });
+        widget.onChanged(_isChecked);
+      },
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            checkbox,
+            if (textWidget != null) ...[
+              const SizedBox(width: 12),
+              Expanded(
+                child: textWidget,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
 
-// // class CustomCheckbox2 extends StatefulWidget {
-// //   final String? text;
-// //   final String? text2;
+// Simplified version for common use cases
+class ThemeCheckbox extends StatelessWidget {
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  final String? secondaryText;
 
-// //   final Color? textcolor;
-// //   final Function(bool) onChanged;
+  const ThemeCheckbox({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.onChanged,
+    this.secondaryText,
+  });
 
-// //   const CustomCheckbox2({
-// //     super.key,
-// //     this.text,
-// //     this.text2,
-
-// //     required this.onChanged,
-// //     this.textcolor,
-// //   });
-
-// //   @override
-// //   _CustomCheckBox2State createState() => _CustomCheckBox2State();
-// // }
-
-// // class _CustomCheckBox2State extends State<CustomCheckbox2> {
-// //   bool _isChecked = false;
-
-// //   @override
-// //   Widget build(BuildContext context) {
-// //     final isArabic = Get.locale?.languageCode == 'ar';
-
-// //     return Row(
-// //       children: [
-// //         if (!isArabic) ...[
-// //           Expanded(
-// //             child: Row(
-// //               children: [
-// //                 Bounce(
-// //                   onTap: () {
-// //                     setState(() {
-// //                       _isChecked = !_isChecked;
-// //                     });
-// //                     widget.onChanged(_isChecked);
-// //                   },
-// //                   child: Container(
-// //                     width: 20,
-// //                     height: 20,
-// //                     decoration: BoxDecoration(
-// //                       borderRadius: BorderRadius.circular(4),
-// //                       color: _isChecked ? kPrimaryColor : kWhite,
-// //                       border: Border.all(
-// //                         color: _isChecked ? kPrimaryColor : kDynamicBorder(context),
-// //                         width: 1,
-// //                       ),
-// //                     ),
-// //                     child: _isChecked
-// //                         ? Icon(Icons.check, color: kWhite, size: 16)
-// //                         : null,
-// //                   ),
-// //                 ),
-// //                 SizedBox(width: 10),
-// //                 Flexible(
-// //                   child: Row(
-// //                     spacing: 4,
-// //                     children: [
-// //                       MyText(
-// //                         text: widget.text ?? '',
-// //                         letterSpacing: 0,
-// //                         size: 12,
-// //                         color: kSubText,
-// //                         weight: FontWeight.w400,
-// //                       ),
-// //                       MyText(
-// //                         text: widget.text2 ?? '',
-// //                         size: 14,
-// //                         color: kBlack,
-// //                         letterSpacing: 0,
-// //                         weight: FontWeight.w400,
-// //                       ),
-// //                     ],
-// //                   ),
-// //                 ),
-// //               ],
-// //             ),
-// //           ),
-// //         ] else ...[
-// //           Expanded(
-// //             child: Row(
-// //               children: [
-// //                 Flexible(
-// //                   child: Row(
-// //                     spacing: 4,
-// //                     children: [
-// //                       MyText(
-// //                         text: widget.text ?? '',
-// //                         letterSpacing: 0,
-// //                         size: 12,
-// //                         color: kBlack,
-// //                         weight: FontWeight.w400,
-// //                       ),
-// //                       MyText(
-// //                         text: widget.text2 ?? '',
-// //                         size: 14,
-// //                         color: kBlack,
-// //                         letterSpacing: 0,
-// //                         weight: FontWeight.w400,
-// //                       ),
-// //                     ],
-// //                   ),
-// //                 ),
-// //                 SizedBox(width: 10),
-// //                 Bounce(
-// //                   onTap: () {
-// //                     setState(() {
-// //                       _isChecked = !_isChecked;
-// //                     });
-// //                     widget.onChanged(_isChecked);
-// //                   },
-// //                   child: Container(
-// //                     width: 20,
-// //                     height: 20,
-// //                     decoration: BoxDecoration(
-// //                       borderRadius: BorderRadius.circular(4),
-// //                       color: _isChecked ? kPrimaryColor : kWhite,
-// //                       border: Border.all(
-// //                         color: _isChecked ? kPrimaryColor : kDynamicBorder(context),
-// //                         width: 1,
-// //                       ),
-// //                     ),
-// //                     child: _isChecked
-// //                         ? Icon(Icons.check, color: kWhite, size: 16)
-// //                         : null,
-// //                   ),
-// //                 ),
-// //               ],
-// //             ),
-// //           ),
-// //         ],
-// //       ],
-// //     );
-// //   }
-// // }
+  @override
+  Widget build(BuildContext context) {
+    return CustomCheckbox(
+      text: label,
+      text2: secondaryText,
+      value: value,
+      onChanged: onChanged,
+      useThemeColors: true,
+    );
+  }
+}

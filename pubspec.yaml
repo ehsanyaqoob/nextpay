@@ -24,6 +24,9 @@ dependencies:
   pull_to_refresh: 
   gap: 
   smooth_page_indicator: 
+  bounce: 
+  pinput: 
+
   
 
 

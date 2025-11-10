@@ -1,10 +1,8 @@
 import 'dart:async';
-
 import 'package:flutter/foundation.dart';
-import 'package:nextpay/core/utils/route_config.dart';
+import 'package:nextpay/core/utils/app_routes.dart';
 import 'package:nextpay/export.dart';
 import 'package:nextpay/widget/common/dot-loader.dart';
-
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -19,19 +17,17 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _fadeAnimation;
   late Animation<double> _logoFadeAnimation;
   bool _showLoader = false;
-  bool _isInitialized = false;
+  bool _initDone = false;
   Timer? _loaderTimer;
 
   @override
   void initState() {
     super.initState();
-    _initializeAnimations();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _startAppFlow();
-    });
+    _setupAnimation();
+   _startFlow();
   }
 
-  void _initializeAnimations() {
+  void _setupAnimation() {
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
@@ -61,67 +57,50 @@ class _SplashScreenState extends State<SplashScreen>
     _animationController.forward();
   }
 
-  Future<void> _startAppFlow() async {
-    if (_isInitialized) return;
-    _isInitialized = true;
+  Future<void> _startFlow() async {
+    if (_initDone) return;
+    _initDone = true;
 
     _loaderTimer = Timer(const Duration(milliseconds: 1500), () {
-      if (mounted) {
-        setState(() {
-          _showLoader = true;
-        });
-      }
+      if (mounted) setState(() => _showLoader = true);
     });
 
     await Future.wait([
       Future.delayed(const Duration(milliseconds: 3500)),
-      _performInitialization(),
+    _initApp(),
     ]);
 
     _loaderTimer?.cancel();
-    _loaderTimer = null;
+    if (!mounted) return;
+    
+    // TODO: Navigation commented out for redesign
+    Navigator.of(
+      context,
+    ).pushNamedAndRemoveUntil(AppLinks.getstart, (_) => false);
 
-    // CORRECTED NAVIGATION - Using the extension method properly
-    if (mounted) {
-      // Use the navigation extension from context
-      context.nav.goToOnboarding();
-      debugPrint('Splash navigation completed - going to onboarding');
-    }
+    // final pref = await SharedPreferences.getInstance();
+    // final seen = pref.getBool('onboardingSeen') ?? false;
+
+    // if (seen) {
+    //   Navigator.of(
+    //     context,
+    //   ).pushNamedAndRemoveUntil(AppLinks.home, (_) => false);
+    // } else {
+    //   Navigator.of(
+    //     context,
+    //   ).pushNamedAndRemoveUntil(AppLinks.onboarding, (_) => false);
+    // }
   }
 
-  Future<void> _performInitialization() async {
+  Future<void> _initApp() async {
     try {
-      // Add your actual initialization logic here
       await Future.delayed(const Duration(milliseconds: 500));
-      
-      // Example initialization tasks:
-      // 1. Check if user is logged in
-      // 2. Load user preferences
-      // 3. Initialize services
-      // 4. Check for updates
-      
-      final isFirstLaunch = true; // Replace with your logic
-      final isLoggedIn = false; // Replace with your logic
-      
-      debugPrint('Initialization completed - First launch: $isFirstLaunch, Logged in: $isLoggedIn');
-      
-    } catch (e) {
-      debugPrint('Initialization error: $e');
-      // Even if initialization fails, navigate to onboarding
-      if (mounted) {
-        context.nav.goToOnboarding();
-      }
-    }
-  }
-
-  void _cancelTimers() {
-    _loaderTimer?.cancel();
-    _loaderTimer = null;
+    } catch (_) {}
   }
 
   @override
   void dispose() {
-    _cancelTimers();
+    _loaderTimer?.cancel();
     _animationController.dispose();
     super.dispose();
   }
@@ -134,7 +113,6 @@ class _SplashScreenState extends State<SplashScreen>
         bottom: false,
         child: Stack(
           children: [
-            // Main Logo and Title
             Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -145,7 +123,7 @@ class _SplashScreenState extends State<SplashScreen>
                       opacity: _logoFadeAnimation,
                       child: SvgPicture.asset(
                         Assets.nextpaylogo,
-                        height: 150.0,
+                        height: 150,
                         color: ThemeColors.buttonBackground(context),
                       ),
                     ),
@@ -163,32 +141,24 @@ class _SplashScreenState extends State<SplashScreen>
                 ],
               ),
             ),
-            // Bottom Section with Loader and Footer
+
             Positioned(
               left: 0,
               right: 0,
               bottom: 0,
-              child: Container(
+              child: Padding(
                 padding: EdgeInsets.only(
                   bottom: MediaQuery.of(context).padding.bottom + 40,
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Loader
                     AnimatedOpacity(
-                      opacity: _showLoader ? 1.0 : 0.0,
+                      opacity: _showLoader ? 1 : 0,
                       duration: const Duration(milliseconds: 300),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          NextPayLoader(size: 40.0, dotSize: 10.0),
-                        ],
-                      ),
+                      child: NextPayLoader(size: 40.0, dotSize: 12.0),
                     ),
                     32.height,
-
-                    // Footer
                     FadeTransition(
                       opacity: _fadeAnimation,
                       child: Column(
@@ -196,14 +166,13 @@ class _SplashScreenState extends State<SplashScreen>
                           MyText(
                             text: "By",
                             color: context.subtitle.withOpacity(0.5),
-                            size: 16.0,
-                            weight: FontWeight.w400,
+                            size: 16,
                           ),
                           4.height,
                           MyText(
                             text: "nextpay.com",
                             color: context.buttonBackground,
-                            size: 18.0,
+                            size: 18,
                             weight: FontWeight.w600,
                             letterSpacing: 0.3,
                           ),
@@ -215,31 +184,27 @@ class _SplashScreenState extends State<SplashScreen>
               ),
             ),
 
-            // Theme Toggle (Debug only)
             if (kDebugMode)
               Positioned(
                 top: 20,
                 right: 20,
                 child: Consumer<ThemeProvider>(
-                  builder: (context, themeProvider, child) {
-                    return Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () => themeProvider.toggleTheme(),
-                        borderRadius: BorderRadius.circular(20),
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: context.surface.withOpacity(0.5),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Icon(
-                            context.isDarkMode
-                                ? Icons.light_mode_outlined
-                                : Icons.dark_mode_outlined,
-                            color: context.icon,
-                            size: 20,
-                          ),
+                  builder: (_, theme, __) {
+                    return InkWell(
+                      onTap: theme.toggleTheme,
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: context.surface.withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Icon(
+                          context.isDarkMode
+                              ? Icons.light_mode
+                              : Icons.dark_mode,
+                          color: context.icon,
+                          size: 20,
                         ),
                       ),
                     );

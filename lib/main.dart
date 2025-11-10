@@ -1,12 +1,8 @@
+import 'package:nextpay/core/navigation/navigation_provider.dart';
+import 'package:nextpay/core/utils/app_routes.dart';
+import 'export.dart';
 
-import 'package:nextpay/core/utils/back_stack.dart';
-import 'package:nextpay/features/screens/splash/splash_screen.dart';
-import 'package:nextpay/providers/navigation_provider.dart';
-import 'package:provider/provider.dart';
-import 'package:nextpay/core/utils/route_config.dart';
-import 'package:nextpay/export.dart';
-
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
@@ -20,62 +16,46 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AppLifecycleProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        ChangeNotifierProvider(create: (_) => SplashProvider()),
         ChangeNotifierProvider(create: (_) => NavigationProvider()),
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
       ],
       child: Consumer<ThemeProvider>(
-        builder: (context, themeProvider, child) {
-          return Consumer<NavigationProvider>(
-            builder: (context, navProvider, child) {
-              return WillPopScope(
-                onWillPop: () => BackPressHandler.handleBackPress(context),
-                child: MaterialApp(
-                  title: 'NextPay',
-                  navigatorKey: navProvider.navigatorKey,
-                  initialRoute: AppLinks.splashScreen,
-                  onGenerateRoute: (settings) {
-                    // Fallback for dynamic routes or parameters
-                    return MaterialPageRoute(
-                      builder: (context) {
-                        final widgetBuilder = AppRoutes.routes[settings.name];
-                        if (widgetBuilder != null) {
-                          return widgetBuilder(context);
-                        }
-                        // Fallback to splash if route not found
-                        return const SplashScreen();
-                      },
-                      settings: settings,
-                    );
-                  },
-                  routes: AppRoutes.routes,
-                  theme: AppTheme.lightTheme,
-                  darkTheme: AppTheme.darkTheme,
-                  themeMode: themeProvider.themeMode,
-                  debugShowCheckedModeBanner: false,
-                  builder: (context, child) {
-                      return AnnotatedRegion<SystemUiOverlayStyle>(
-                value: SystemUiOverlayStyle(
-                  statusBarColor: Colors.transparent,
-                  statusBarIconBrightness: context.isDarkMode
-                      ? Brightness.light
-                      : Brightness.dark,
-                  systemNavigationBarColor: context.scaffoldBackground,
-                  systemNavigationBarIconBrightness: context.isDarkMode
-                      ? Brightness.light
-                      : Brightness.dark,
-                  systemNavigationBarDividerColor: Colors.transparent,
-                ),
-                child: GestureDetector(
-                  onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-                  child: StateAwareWidget(
-                    child: child ?? const SizedBox(),
-                    onResume: () {},
-                    onPause: () {},
-                    onInactive: () {},
-                  ),
-                ),
-              );
-                  },
+        builder: (context, themeProvider, _) {
+          final isDarkMode = themeProvider.effectiveIsDarkMode;
+          SystemChrome.setSystemUIOverlayStyle(
+            SystemUiOverlayStyle(
+              statusBarColor: Colors.transparent,
+              statusBarIconBrightness: isDarkMode
+                  ? Brightness.light
+                  : Brightness.dark,
+              statusBarBrightness: isDarkMode
+                  ? Brightness.dark
+                  : Brightness.light,
+              systemNavigationBarColor: isDarkMode
+                  ? AppColors.darkBackground
+                  : AppColors.background,
+              systemNavigationBarIconBrightness: isDarkMode
+                  ? Brightness.light
+                  : Brightness.dark,
+            ),
+          );
+
+          return MaterialApp(
+            title: 'NextPay',
+            debugShowCheckedModeBanner: false,
+            initialRoute: AppLinks.splash,
+            onGenerateRoute: AppRoutes.onGenerateRoute,
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: themeProvider.themeMode,
+            builder: (context, child) {
+              return GestureDetector(
+                onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+                child: StateAwareWidget(
+                  child: child ?? const SizedBox(),
+                  onResume: () {},
+                  onPause: () {},
+                  onInactive: () {},
                 ),
               );
             },
