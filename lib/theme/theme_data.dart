@@ -1,7 +1,3 @@
-
-
-import 'package:nextpay/theme/colors.dart';
-
 import 'package:flutter/material.dart';
 import 'package:nextpay/theme/text_style.dart';
 import 'colors.dart';
@@ -46,13 +42,6 @@ class AppTheme {
         labelMedium: AppTextStyles.labelMedium,
         labelSmall: AppTextStyles.labelSmall,
       ),
-      // cardTheme: CardTheme(
-      //   elevation: 0,
-      //   shape: RoundedRectangleBorder(
-      //     borderRadius: BorderRadius.circular(12),
-      //     side: const BorderSide(color: AppColors.borderLight),
-      //   ),
-      // ),
       inputDecorationTheme: InputDecorationTheme(
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
@@ -105,17 +94,7 @@ class AppTheme {
         bodyLarge: AppTextStyles.bodyLargeDark,
         bodyMedium: AppTextStyles.bodyMediumDark,
         bodySmall: AppTextStyles.bodySmallDark,
-        // labelLarge: AppTextStyles.labelLargeDark,
-        // labelMedium: AppTextStyles.labelMediumDark,
-        // labelSmall: AppTextStyles.labelSmallDark,
       ),
-      // cardTheme: CardTheme(
-      //   elevation: 1,
-      //   shape: RoundedRectangleBorder(
-      //     borderRadius: BorderRadius.circular(12),
-      //     side: const BorderSide(color: AppColors.borderDark),
-      //   ),
-      // ),
       inputDecorationTheme: InputDecorationTheme(
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),

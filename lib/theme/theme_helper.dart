@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:nextpay/theme/colors.dart';
+import 'package:flutter/material.dart';
 
 bool kIsDarkMode(BuildContext context) =>
     Theme.of(context).brightness == Brightness.dark;

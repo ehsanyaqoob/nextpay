@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nextpay/export.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ThemeProvider with ChangeNotifier {
@@ -17,10 +18,7 @@ class ThemeProvider with ChangeNotifier {
   }
 
   void _initialize() {
-    // Set initial system theme immediately
-    _updateSystemTheme();
-    
-    // Load saved preference
+    // Load saved preference first (synchronously check what was saved)
     _loadThemePreference();
 
     // Listen to system theme changes
@@ -44,76 +42,103 @@ class ThemeProvider with ChangeNotifier {
     _isDarkMode = platformBrightness == Brightness.dark;
   }
 
-  Future<void> _loadThemePreference() async {
+  void _loadThemePreference() {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final String? savedTheme = prefs.getString(_prefKey);
+      SharedPreferences.getInstance().then((prefs) async {
+        final String? savedTheme = prefs.getString(_prefKey);
 
-      if (savedTheme != null) {
-        switch (savedTheme) {
-          case 'light':
-            _themeMode = ThemeMode.light;
-            _isDarkMode = false;
-            break;
-          case 'dark':
-            _themeMode = ThemeMode.dark;
-            _isDarkMode = true;
-            break;
-          case 'system':
-            _themeMode = ThemeMode.system;
-            _updateSystemTheme();
-            break;
-          default:
-            _themeMode = ThemeMode.system;
-            _updateSystemTheme();
+        if (savedTheme != null) {
+          switch (savedTheme) {
+            case 'light':
+              _themeMode = ThemeMode.light;
+              _isDarkMode = false;
+              break;
+            case 'dark':
+              _themeMode = ThemeMode.dark;
+              _isDarkMode = true;
+              break;
+            case 'system':
+            default:
+              _themeMode = ThemeMode.system;
+              _updateSystemTheme();
+          }
+        } else {
+          _themeMode = ThemeMode.system;
+          _updateSystemTheme();
+          await prefs.setString(_prefKey, 'system');
         }
-      } else {
-        // First time - use system default
+        
+        _updateSystemUIOverlay();
+        _isInitialized = true;
+        notifyListeners();
+      }).catchError((e) {
+        print('Error loading theme: $e');
         _themeMode = ThemeMode.system;
         _updateSystemTheme();
-        await prefs.setString(_prefKey, 'system');
-      }
+        _updateSystemUIOverlay();
+        _isInitialized = true;
+        notifyListeners();
+      });
     } catch (e) {
       print('Error loading theme: $e');
       _themeMode = ThemeMode.system;
       _updateSystemTheme();
+      _updateSystemUIOverlay();
+      _isInitialized = true;
+      notifyListeners();
     }
-    
-    _isInitialized = true;
-    notifyListeners();
   }
 
   Future<void> switchTheme(ThemeMode mode) async {
     _themeMode = mode;
 
     // Update isDarkMode based on mode
-    if (mode == ThemeMode.system) {
-      _updateSystemTheme();
-    } else if (mode == ThemeMode.light) {
-      _isDarkMode = false;
-    } else if (mode == ThemeMode.dark) {
-      _isDarkMode = true;
+    switch (mode) {
+      case ThemeMode.system:
+        _updateSystemTheme();
+        break;
+      case ThemeMode.light:
+        _isDarkMode = false;
+        break;
+      case ThemeMode.dark:
+        _isDarkMode = true;
+        break;
     }
 
     // Save preference
     try {
       final prefs = await SharedPreferences.getInstance();
-      switch (mode) {
-        case ThemeMode.light:
-          await prefs.setString(_prefKey, 'light');
-          break;
-        case ThemeMode.dark:
-          await prefs.setString(_prefKey, 'dark');
-          break;
-        case ThemeMode.system:
-          await prefs.setString(_prefKey, 'system');
-          break;
-      }
+      final modeString = mode == ThemeMode.light 
+          ? 'light' 
+          : mode == ThemeMode.dark 
+              ? 'dark' 
+              : 'system';
+      await prefs.setString(_prefKey, modeString);
     } catch (e) {
       print('Error saving theme: $e');
     }
     
+    _updateSystemUIOverlay();
     notifyListeners();
+  }
+
+  void _updateSystemUIOverlay() {
+    final isDarkMode = effectiveIsDarkMode;
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: isDarkMode
+            ? Brightness.light
+            : Brightness.dark,
+        statusBarBrightness: isDarkMode
+            ? Brightness.dark
+            : Brightness.light,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: isDarkMode
+            ? Brightness.light
+            : Brightness.dark,
+      ),
+    );
   }
 
   Future<void> toggleTheme() async {
@@ -131,8 +156,8 @@ class ThemeProvider with ChangeNotifier {
   // Get the effective dark mode status
   bool get effectiveIsDarkMode {
     if (_themeMode == ThemeMode.system) {
-      return WidgetsBinding.instance.platformDispatcher.platformBrightness == 
-          Brightness.dark;
+      final currentBrightness = WidgetsBinding.instance.platformDispatcher.platformBrightness;
+      return currentBrightness == Brightness.dark;
     }
     return _isDarkMode;
   }

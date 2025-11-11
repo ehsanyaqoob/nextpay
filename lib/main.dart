@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:nextpay/core/navigation/navigation_provider.dart';
 import 'package:nextpay/core/utils/app_routes.dart';
 import 'export.dart';
@@ -22,23 +23,27 @@ class MyApp extends StatelessWidget {
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, _) {
           final isDarkMode = themeProvider.effectiveIsDarkMode;
-          SystemChrome.setSystemUIOverlayStyle(
-            SystemUiOverlayStyle(
-              statusBarColor: Colors.transparent,
-              statusBarIconBrightness: isDarkMode
-                  ? Brightness.light
-                  : Brightness.dark,
-              statusBarBrightness: isDarkMode
-                  ? Brightness.dark
-                  : Brightness.light,
-              systemNavigationBarColor: isDarkMode
-                  ? AppColors.darkBackground
-                  : AppColors.background,
-              systemNavigationBarIconBrightness: isDarkMode
-                  ? Brightness.light
-                  : Brightness.dark,
-            ),
-          );
+          
+          // Update system UI in a post-frame callback to avoid repeated calls
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            SystemChrome.setSystemUIOverlayStyle(
+              SystemUiOverlayStyle(
+                statusBarColor: Colors.transparent,
+                statusBarIconBrightness: isDarkMode
+                    ? Brightness.light
+                    : Brightness.dark,
+                statusBarBrightness: isDarkMode
+                    ? Brightness.dark
+                    : Brightness.light,
+                systemNavigationBarColor: isDarkMode
+                    ? AppColors.darkBackground
+                    : AppColors.background,
+                systemNavigationBarIconBrightness: isDarkMode
+                    ? Brightness.light
+                    : Brightness.dark,
+              ),
+            );
+          });
 
           return MaterialApp(
             title: 'NextPay',
@@ -56,6 +61,7 @@ class MyApp extends StatelessWidget {
                   onResume: () {},
                   onPause: () {},
                   onInactive: () {},
+                  
                 ),
               );
             },

@@ -112,143 +112,144 @@ class _MyTextFieldState extends State<MyTextField> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final defaultFilledColor = ThemeColors.inputBackground(context);
-    final defaultFocusedFillColor = ThemeColors.inputBackground(context);
-    // final defaultBorderColor = ThemeColors.inputBorder(context);
-    final defaultFocusBorderColor = ThemeColors.focused(context);
-    final defaultHintColor = ThemeColors.inputHint(context);
-    final defaultLabelColor = ThemeColors.hint(context);
-    final defaultTextColor = ThemeColors.text(context);
-    final defaultErrorColor = ThemeColors.error(context);
+ 
+Widget build(BuildContext context) {
+  final defaultFilledColor = ThemeColors.inputBackground(context);
+  final defaultFocusedFillColor = ThemeColors.inputBackground(context);
+  final defaultFocusBorderColor = ThemeColors.focused(context);
+  final defaultHintColor = ThemeColors.inputHint(context);
+  final defaultTextColor = ThemeColors.text(context);
+  final defaultErrorColor = ThemeColors.error(context);
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: widget.marginBottom ?? 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (widget.label != null && widget.haveLabel == true)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: MyText(
-                text: widget.label ?? '',
-                size: widget.labelSize ?? 14,
-                color: widget.labelColor ?? defaultLabelColor,
-                weight: widget.labelWeight ?? FontWeight.w600,
-              ),
+  return Padding(
+    padding: EdgeInsets.only(bottom: widget.marginBottom ?? 0),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Removed external label - label will be inside as hint
+        Container(
+          width: widget.width ?? double.infinity,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(widget.radius ?? 12.0),
+            color: _isFocused
+                ? widget.focusedFillColor ?? defaultFocusedFillColor
+                : widget.filledColor ?? defaultFilledColor,
+            // No border by default
+            border: Border.all(
+              color: Colors.transparent,
+              width: 0,
             ),
-          Container(
-            width: widget.width ?? double.infinity,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(widget.radius ?? 12.0),
-              color: _isFocused
+          ),
+          child: TextFormField(
+            focusNode: widget.focusNode,
+            onTap: widget.onTap,
+            textAlignVertical: TextAlignVertical.center,
+            keyboardType: widget.isPin == true
+                ? TextInputType.number
+                : widget.keyboardType,
+            inputFormatters: widget.isPin == true
+                ? [
+                    LengthLimitingTextInputFormatter(1),
+                    FilteringTextInputFormatter.digitsOnly,
+                  ]
+                : widget.inputFormatters,
+            obscureText: (widget.isObSecure ?? false) && !_isPasswordVisible,
+            obscuringCharacter: widget.obscuringCharacter ?? '•',
+            textAlign: widget.textAlign ?? TextAlign.start,
+            style: widget.style ??
+                TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: defaultTextColor,
+                ),
+            maxLines: widget.maxLines ?? 1,
+            readOnly: widget.isReadOnly ?? false,
+            controller: widget.controller,
+            autofocus: widget.autoFocus ?? false,
+            onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
+            onChanged: widget.onChanged,
+            validator: widget.validator,
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: _isFocused
                   ? widget.focusedFillColor ?? defaultFocusedFillColor
                   : widget.filledColor ?? defaultFilledColor,
-            ),
-            child: TextFormField(
-              focusNode: widget.focusNode,
-              onTap: widget.onTap,
-              textAlignVertical: TextAlignVertical.center,
-              keyboardType: widget.isPin == true
-                  ? TextInputType.number
-                  : widget.keyboardType,
-              inputFormatters: widget.isPin == true
-                  ? [
-                      LengthLimitingTextInputFormatter(1),
-                      FilteringTextInputFormatter.digitsOnly,
-                    ]
-                  : widget.inputFormatters,
-              obscureText: (widget.isObSecure ?? false) && !_isPasswordVisible,
-              obscuringCharacter: widget.obscuringCharacter ?? '•',
-              textAlign: widget.textAlign ?? TextAlign.start,
-              style:
-                  widget.style ??
-                  TextStyle(
-                    fontSize: widget.isPin == true ? 18 : 16,
-                    fontWeight: widget.isPin == true
-                        ? FontWeight.bold
-                        : FontWeight.w500,
-                    color: defaultTextColor,
-                  ),
-              maxLines: widget.maxLines ?? 1,
-              readOnly: widget.isReadOnly ?? false,
-              controller: widget.controller,
-              autofocus: widget.autoFocus ?? false,
-              onTapOutside: (_) =>
-                  FocusManager.instance.primaryFocus?.unfocus(),
-              onChanged: widget.onChanged,
-              validator: widget.validator,
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: _isFocused
-                    ? widget.focusedFillColor ?? defaultFocusedFillColor
-                    : widget.filledColor ?? defaultFilledColor,
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(widget.radius ?? 12.0),
-                  borderSide: BorderSide(
-                    color: widget.focusBorderColor ?? defaultFocusBorderColor,
-                    width: 2,
-                  ),
+              // No border by default
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(widget.radius ?? 12.0),
+                borderSide: BorderSide.none, // No border
+              ),
+              // Focused state - subtle border
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(widget.radius ?? 12.0),
+                borderSide: BorderSide(
+                  color: widget.focusBorderColor ?? defaultFocusBorderColor,
+                  width: 1.5, // Subtle focus border
                 ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(widget.radius ?? 12.0),
-                  // borderSide: BorderSide(
-                  //   color: widget.bordercolor ?? defaultBorderColor,
-                  //   width: 1,
-                  // ),
+              ),
+              // Enabled state - no border
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(widget.radius ?? 12.0),
+                borderSide: BorderSide.none, // No border
+              ),
+              // Error state
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(widget.radius ?? 12.0),
+                borderSide: BorderSide(
+                  color: defaultErrorColor,
+                  width: 1.5,
                 ),
-                prefixIcon: widget.prefix != null
-                    ? Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: widget.prefix,
-                      )
-                    : null,
-                prefixIconConstraints: const BoxConstraints(
-                  minWidth: 40,
-                  minHeight: 40,
+              ),
+              focusedErrorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(widget.radius ?? 12.0),
+                borderSide: BorderSide(
+                  color: defaultErrorColor,
+                  width: 2,
                 ),
-                suffixIcon: widget.showPasswordToggle == true
-                    ? _buildPasswordToggle(context)
-                    : widget.suffix != null
-                    ? Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: widget.suffix,
-                      )
-                    : null,
-                suffixIconConstraints: const BoxConstraints(
-                  minWidth: 40,
-                  minHeight: 40,
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
-                ),
-                hintText: widget.hint,
-                hintStyle: TextStyle(
-                  fontSize: widget.hintsize ?? 14,
-                  color: widget.hintColor ?? defaultHintColor,
-                  fontWeight: widget.hintWeight ?? FontWeight.w400,
-                ),
-                errorStyle: const TextStyle(
-                  height: 0,
-                  fontSize: 0,
-                ), // key change
-                errorBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(widget.radius ?? 12.0),
-                  borderSide: BorderSide(width: 1.5, color: defaultErrorColor),
-                ),
-                focusedErrorBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(widget.radius ?? 12.0),
-                  borderSide: BorderSide(width: 2, color: defaultErrorColor),
-                ),
+              ),
+              prefixIcon: widget.prefix != null
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: widget.prefix,
+                    )
+                  : null,
+              prefixIconConstraints: const BoxConstraints(
+                minWidth: 40,
+                minHeight: 40,
+              ),
+              suffixIcon: widget.showPasswordToggle == true
+                  ? _buildPasswordToggle(context)
+                  : widget.suffix != null
+                      ? Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: widget.suffix,
+                        )
+                      : null,
+              suffixIconConstraints: const BoxConstraints(
+                minWidth: 40,
+                minHeight: 40,
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 16, // Slightly more vertical padding
+              ),
+              hintText: widget.hint ?? widget.label, // Use label as hint if no hint provided
+              hintStyle: TextStyle(
+                fontSize: 16.0, // Same as input text
+                color: defaultHintColor,
+                fontWeight: FontWeight.w400,
+              ),
+              errorStyle: const TextStyle(
+                height: 0,
+                fontSize: 0,
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
+        ),
+      ],
+    ),
+  );
+}}
 
 // ========== CONVENIENCE CONSTRUCTORS ==========
 

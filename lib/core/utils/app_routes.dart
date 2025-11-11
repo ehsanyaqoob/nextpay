@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:nextpay/core/navigation/route_transition.dart';
+import 'package:nextpay/features/auth/screens/details_form_screen.dart';
 import 'package:nextpay/features/auth/screens/forgot_pass_screen.dart';
 import 'package:nextpay/features/auth/screens/get_start_screen.dart';
 import 'package:nextpay/features/auth/screens/signIn_screen.dart';
@@ -11,15 +12,13 @@ import 'package:nextpay/features/boarding/on_boarding.dart';
 class AppLinks {
   static const splash = '/';
   static const onboarding = '/onboarding';
-  // get start 
   static const getstart = '/getstart';
-  // auth
   static const signin = '/signin';
   static const signup = '/signup';
-    static const forgot = '/forgot';
-
+  static const detailsform = '/detailsform';
+  static const forgot = '/forgot';
   static const home = '/home';
-  
+
 }
 
 class AppRoutes {
@@ -33,19 +32,24 @@ class AppRoutes {
         return _buildRoute(const SigninScreen(), RouteTransition.rightToLeft);
       case AppLinks.signup:
         return _buildRoute(const SignUpScreen(), RouteTransition.leftToRight);
-        case AppLinks.signup:
-        return _buildRoute(const ForgotPasswordScreen(), RouteTransition.rightToLeft);
+        case AppLinks.detailsform:
+        return _buildRoute(const DetailsFormScreen(), RouteTransition.rightToLeft);
+      case AppLinks.forgot:
+        return _buildRoute(
+          const ForgotPasswordScreen(),
+          RouteTransition.rightToLeft,
+        );
+        
       case AppLinks.onboarding:
         return _buildRoute(const OnBoardingScreen());
-        
+
       case AppLinks.home:
         return _buildRoute(const HomeScreen());
-        
+
       default:
         return MaterialPageRoute(
-          builder: (_) => const Scaffold(
-            body: Center(child: Text("Route not found")),
-          ),
+          builder: (_) =>
+              const Scaffold(body: Center(child: Text("Route not found"))),
         );
     }
   }

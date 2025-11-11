@@ -27,55 +27,57 @@ class _SigninScreenState extends State<SigninScreen> {
     passwordController.dispose();
     super.dispose();
   }
-void _handleSignIn() async {
-  final email = emailController.text.trim();
-  final password = passwordController.text;
 
-  if (email.isEmpty) {
-    AppToast.show('Email is required', context);
-    return;
-  }
+  void _handleSignIn() async {
+    final email = emailController.text.trim();
+    final password = passwordController.text;
 
-  if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w]{2,4}$').hasMatch(email)) {
-    AppToast.show('Please enter a valid email', context);
-    return;
-  }
+    if (email.isEmpty) {
+      AppToast.show('Email is required', context);
+      return;
+    }
 
-  if (password.isEmpty) {
-    AppToast.show('Password is required', context);
-    return;
-  }
+    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w]{2,4}$').hasMatch(email)) {
+      AppToast.show('Please enter a valid email', context);
+      return;
+    }
 
-  if (password.length < 6) {
-    AppToast.show('Password must be at least 6 characters', context);
-    return;
-  }
+    if (password.isEmpty) {
+      AppToast.show('Password is required', context);
+      return;
+    }
 
-  final authProvider = context.read<AuthProvider>();
-  final success = await authProvider.signIn(
-    context: context,
-    email: email,
-    password: password,
-  );
+    if (password.length < 6) {
+      AppToast.show('Password must be at least 6 characters', context);
+      return;
+    }
 
-  if (success && mounted) {
-    // Show success dialog instead of toast
-    DialogHelper.showSuccessSignInDialog(context, onOkPressed: () {
-      Navigate.to(
-        context: context,
-        page: HomeScreen(),
-        transition: RouteTransition.rightToLeft,
+    final authProvider = context.read<AuthProvider>();
+    final success = await authProvider.signIn(
+      context: context,
+      email: email,
+      password: password,
+    );
+
+    if (success && mounted) {
+      DialogHelper.showSuccessSignInDialog(
+        context,
+        onOkPressed: () {
+          Navigate.to(
+            context: context,
+            page: HomeScreen(),
+            transition: RouteTransition.rightToLeft,
+          );
+        },
       );
-    });
-  } else if (authProvider.error != null) {
-    AppToast.show(authProvider.error!, context);
+    } else if (authProvider.error != null) {
+      AppToast.show(authProvider.error!, context);
+    }
   }
-}
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      resizeToAvoidBottomInset: false,
       backgroundColor: context.scaffoldBackground,
       appBar: MyAppBar(
         title: 'Sign In',
@@ -85,111 +87,108 @@ void _handleSignIn() async {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: AppSizes.DEFAULT,
-          child: Column(
-            children: [
-              Center(
-                child: SvgPicture.asset(
-                  Assets.nextpaylogo,
-                  color: context.icon,
-                  height: 100,
-                  width: 80,
-                ),
-              ),
-              const Gap(30),
-              MyText(
-                text: 'Welcome Back!',
-                color: context.text,
-                size: 28,
-                weight: FontWeight.bold,
-              ),
-              const Gap(8),
-              MyText(
-                text:
-                    'Please enter your email and password to proceed with sign in',
-                color: context.subtitle,
-                size: 14,
-                weight: FontWeight.w400,
-              ),
-              const Gap(40),
-              MyTextFieldPresets.email(
-                context: context,
-                controller: emailController,
-              ),
-              MyTextFieldPresets.password(
-                context: context,
-                controller: passwordController,
-                showToggle: true,
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: ThemeCheckbox(
-                      label: 'Remember me',
-                      value: rememberMe,
-                      onChanged: (value) => setState(() => rememberMe = value),
-                    ),
+          physics: const ClampingScrollPhysics(),
+          child: Padding(
+            padding: AppSizes.DEFAULT,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: SvgPicture.asset(
+                    Assets.nextpaylogo,
+                    color: context.icon,
+                    height: 100,
+                    width: 80,
                   ),
-                  Expanded(
-                    child: Bounce(
-                      onTap: () {
-                        Navigate.to(
-                          context: context,
-                          page: const ForgotPasswordScreen(),
-                          transition: RouteTransition.leftToRight,
-                        );
-                      },
-                      child: MyText(
-                        text: 'Forgot Password?',
-                        color: context.primary,
-                        size: 16,
-                        weight: FontWeight.w600,
+                ),
+                MyText(
+                  text: 'Welcome Back!',
+                  color: context.text,
+                  size: 28,
+                  weight: FontWeight.bold,
+                ),
+                const Gap(4),
+                MyText(
+                  text:
+                      'Please enter your email and password to proceed with sign in',
+                  color: context.subtitle,
+                  size: 14,
+                  weight: FontWeight.w400,
+                ),
+                const Gap(10),
+                MyTextFieldPresets.email(
+                  context: context,
+                  controller: emailController,
+                ),
+                MyTextFieldPresets.password(
+                  context: context,
+                  controller: passwordController,
+                  showToggle: true,
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: ThemeCheckbox(
+                        label: 'Remember me',
+                        value: rememberMe,
+                        onChanged: (value) =>
+                            setState(() => rememberMe = value),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              30.height, // Sign In Button
-              SafeArea(
-                top: false,
-                child: Column(
-                 mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Consumer<AuthProvider>(
-                      builder: (context, authProvider, _) => MyButton(
-                        buttonText: 'Sign In',
-                        isLoading: authProvider.isLoading,
-                        onTap: authProvider.isLoading ? null : _handleSignIn,
-                        mHoriz: 0,
-                        mBottom: 12,
-                        mTop: 0,
+                    Expanded(
+                      child: Bounce(
+                        onTap: () {
+                          Navigate.to(
+                            context: context,
+                            page: const ForgotPasswordScreen(),
+                            transition: RouteTransition.leftToRight,
+                          );
+                        },
+                        child: MyText(
+                          text: 'Forgot Password?',
+                          color: context.primary,
+                          size: 16,
+                          weight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ],
                 ),
-              ),
-              6.height,
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  MyText(
-                    text: "Don't have an account? ",
-                    color: context.subtitle,
-                    size: 14,
+
+                10.height,
+                Consumer<AuthProvider>(
+                  builder: (context, authProvider, _) => MyButton(
+                    buttonText: 'Sign In',
+                    isLoading: authProvider.isLoading,
+                    onTap: authProvider.isLoading ? null : _handleSignIn,
+                    mHoriz: 0,
+                    mBottom: 0,
+                    mTop: 0,
                   ),
-                  Bounce(
-                    onTap: () => Navigator.of(context).pop(),
-                    child: MyText(
-                      text: 'Sign Up',
-                      color: context.primary,
+                ),
+                const Gap(10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    MyText(
+                      text: "Don't have an account? ",
+                      color: context.subtitle,
                       size: 14,
-                      weight: FontWeight.w600,
                     ),
-                  ),
-                ],
-              ),
-            ],
+                    Bounce(
+                      onTap: () => Navigator.of(context).pop(),
+                      child: MyText(
+                        text: 'Sign Up',
+                        color: context.primary,
+                        size: 14,
+                        weight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
