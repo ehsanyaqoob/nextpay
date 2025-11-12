@@ -1,7 +1,15 @@
+// details_form_screen.dart
+import 'dart:io';
+
 import 'package:nextpay/core/navigation/navigate.dart';
 import 'package:nextpay/core/navigation/route_transition.dart';
 import 'package:nextpay/export.dart';
+import 'package:nextpay/features/auth/screens/doc_scan_screen.dart';
 import 'package:nextpay/features/screens/home/home_screen.dart';
+import 'package:nextpay/providers/verification_provider.dart';
+import 'package:country_pickers/country.dart';
+import 'package:country_pickers/country_pickers.dart';
+import 'package:nextpay/widget/common/dot-loader.dart';
 
 class DetailsFormScreen extends StatefulWidget {
   const DetailsFormScreen({super.key});
@@ -12,51 +20,59 @@ class DetailsFormScreen extends StatefulWidget {
 
 class _DetailsFormScreenState extends State<DetailsFormScreen> {
   final PageController _pageController = PageController();
+  final TextEditingController _fullNameController = TextEditingController();
+  final TextEditingController _idNumberController = TextEditingController();
+  final TextEditingController _countrySearchController =
+      TextEditingController();
 
-  // Form data
-  String? selectedAccountType;
-  final fullNameController = TextEditingController();
-  String? selectedCountry;
-  String? selectedIdType;
-  final idNumberController = TextEditingController();
-  DateTime? idIssueDate;
-  DateTime? idExpiryDate;
+  @override
+  void initState() {
+    super.initState();
+    _initializeData();
+  }
 
-  int _currentStep = 0;
-  final int _totalSteps = 5;
+  void _initializeData() {
+    final provider = context.read<VerificationProvider>();
+    _fullNameController.text = provider.verificationData.fullName ?? '';
+    _idNumberController.text = provider.verificationData.idNumber ?? '';
 
-  // Countries list
-  final List<String> countries = [
-    'Australia',
-    'Belgium',
-    'Brazil',
-    'Canada',
-    'China',
-    'United Arab Emirates',
-    'United Kingdom',
-    'United States of America',
-  ];
+    _fullNameController.addListener(() {
+      provider.updateFullName(_fullNameController.text);
+    });
 
-  // ID Types
-  final List<String> idTypes = [
-    'National Identity Card',
-    'Passport',
-    'Driver License',
-  ];
+    _idNumberController.addListener(() {
+      provider.updateIdNumber(_idNumberController.text);
+    });
+  }
 
   @override
   void dispose() {
     _pageController.dispose();
-    fullNameController.dispose();
-    idNumberController.dispose();
+    _fullNameController.dispose();
+    _idNumberController.dispose();
+    _countrySearchController.dispose();
     super.dispose();
   }
 
-  void _nextStep() {
-    if (_currentStep < _totalSteps - 1) {
-      setState(() {
-        _currentStep++;
-      });
+  void _nextStep() async {
+    final provider = context.read<VerificationProvider>();
+
+    if (!provider.canGoNext()) {
+      final errorMessage = provider.getStepValidationMessage(
+        provider.currentStep,
+      );
+      AppToast.show(
+        errorMessage ?? 'Please complete this step',
+        context,
+        type: ToastType.error,
+        duration: const Duration(seconds: 2),
+      );
+      return;
+    }
+
+    // Move to next step normally
+    if (provider.currentStep < provider.totalSteps - 1) {
+      provider.nextStep();
       _pageController.nextPage(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
@@ -67,10 +83,9 @@ class _DetailsFormScreenState extends State<DetailsFormScreen> {
   }
 
   void _previousStep() {
-    if (_currentStep > 0) {
-      setState(() {
-        _currentStep--;
-      });
+    final provider = context.read<VerificationProvider>();
+    if (provider.currentStep > 0) {
+      provider.previousStep();
       _pageController.previousPage(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
@@ -80,205 +95,203 @@ class _DetailsFormScreenState extends State<DetailsFormScreen> {
     }
   }
 
-  void _completeVerification() {
-    // Handle verification completion
-    final verificationData = {
-      'accountType': selectedAccountType,
-      'fullName': fullNameController.text,
-      'country': selectedCountry,
-      'idType': selectedIdType,
-      'idNumber': idNumberController.text,
-      'issueDate': idIssueDate,
-      'expiryDate': idExpiryDate,
-    };
+  Future<void> _completeVerification() async {
+    final provider = context.read<VerificationProvider>();
 
-    print('Verification Data: $verificationData');
-
-    // Navigate to home screen
-    Navigate.to(
+    showDialog(
       context: context,
-      page: const HomeScreen(),
-      transition: RouteTransition.rightToLeft,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            NextPayLoader(),
+            16.height,
+            MyText(
+              text: 'Verifying your information...',
+              size: 18.0,
+              color: context.text,
+            ),
+          ],
+        ),
+      ),
     );
-  }
 
-  double get _progressValue {
-    return (_currentStep + 1) / _totalSteps;
+    final success = await provider.submitVerification();
+
+    if (!mounted) return;
+    Navigator.of(context).pop();
+
+    if (success) {
+      Navigate.to(
+        context: context,
+        page: const HomeScreen(),
+        transition: RouteTransition.rightToLeft,
+      );
+    } else {
+      AppToast.show(
+        provider.errorMessage ?? 'Verification failed. Please try again.',
+        context,
+        type: ToastType.error,
+        duration: const Duration(seconds: 2),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: context.scaffoldBackground,
-      appBar: MyAppBar(
-        title: _getAppBarTitle(),
-        onBackPressed: _previousStep,
-        centerTitle: false,
-        showBackButton: true,
-      ),
-      body: Column(
-        children: [
-          // Progress Indicator
-          Container(
-            padding: AppSizes.DEFAULT,
-            child: Column(
-              children: [
-                // Progress Text
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Consumer<VerificationProvider>(
+      builder: (context, provider, child) {
+        return Scaffold(
+          backgroundColor: context.scaffoldBackground,
+          appBar: MyAppBar(
+            title: provider.getAppBarTitle(),
+            onBackPressed: _previousStep,
+            centerTitle: false,
+            showBackButton: true,
+          ),
+          body: Column(
+            children: [
+              // Progress Indicator
+              _buildProgressIndicator(provider),
+
+              // Form Content
+              Expanded(
+                child: PageView(
+                  controller: _pageController,
+                  physics: const NeverScrollableScrollPhysics(),
                   children: [
-                    MyText(
-                      text: 'Step ${_currentStep + 1} of $_totalSteps',
-                      color: context.primary,
-                      size: 14,
-                      weight: FontWeight.w600,
-                    ),
-                    MyText(
-                      text: '${((_currentStep + 1) / _totalSteps * 100).round()}% Complete',
-                      color: context.subtitle,
-                      size: 14,
-                    ),
+                    _buildAccountTypeStep(provider),
+                    _buildNameStep(provider),
+                    _buildCountryStep(provider),
+                    _buildIdTypeSelectionStep(
+                      provider,
+                    ), // Step 3: Only ID type selection
+                    _buildIdCaptureStep(provider), // Step 4: Capture ID
+                    _buildSelfieWithIdStep(provider), // Step 5: Selfie with ID
                   ],
                 ),
-                const Gap(12),
-                // Linear Progress Bar
-                Container(
+              ),
+            ],
+          ),
+          bottomNavigationBar: provider.shouldShowButton
+              ? _buildBottomButton(provider)
+              : null,
+        );
+      },
+    );
+  }
+
+  Widget _buildProgressIndicator(VerificationProvider provider) {
+    return Container(
+      padding: AppSizes.DEFAULT,
+      child: Column(
+        children: [
+          // Progress Text
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              MyText(
+                text:
+                    'Step ${provider.currentStep + 1} of ${provider.totalSteps}',
+                color: context.primary,
+                size: 12.0,
+                weight: FontWeight.w600,
+              ),
+              MyText(
+                text:
+                    '${((provider.currentStep + 1) / provider.totalSteps * 100).round()}% Complete',
+                color: context.subtitle,
+                size: 14.0,
+              ),
+            ],
+          ),
+          12.height,
+          // Linear Progress Bar
+          Container(
+            height: 6,
+            decoration: BoxDecoration(
+              color: context.card,
+              borderRadius: BorderRadius.circular(6.0),
+            ),
+            child: Stack(
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
                   height: 6,
+                  width:
+                      MediaQuery.of(context).size.width *
+                      provider.progressValue,
                   decoration: BoxDecoration(
-                    color: context.card,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                  child: Stack(
-                    children: [
-                      // Background
-                      Container(
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: context.card,
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                      ),
-                      // Progress
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeInOut,
-                        height: 6,
-                        width: MediaQuery.of(context).size.width * _progressValue,
-                        decoration: BoxDecoration(
-                          color: context.primary,
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                      ),
-                    ],
+                    color: context.primary,
+                    borderRadius: BorderRadius.circular(6.0),
                   ),
                 ),
               ],
             ),
           ),
-
-          // Form Content
-          Expanded(
-            child: PageView(
-              controller: _pageController,
-              physics: const NeverScrollableScrollPhysics(),
-              children: [
-                // Step 1: Account Type Selection
-                _buildAccountTypeStep(),
-
-                // Step 2: Full Name
-                _buildNameStep(),
-
-                // Step 3: Country Selection
-                _buildCountryStep(),
-
-                // Step 4: ID Type Selection
-                _buildIdTypeStep(),
-
-                // Step 5: ID Details
-                _buildIdDetailsStep(),
-              ],
-            ),
-          ),
-
-          // Navigation Buttons - Only show for steps that need them
-          if (_currentStep > 0) // Show buttons only from step 2 onwards
-            Container(
-              padding: const EdgeInsets.all(24),
-              child: MyButton(
-                buttonText: _currentStep == _totalSteps - 1 ? 'Complete Verification' : 'Continue',
-                onTap: _nextStep,
-                mHoriz: 0,
-              ),
-            ),
         ],
       ),
     );
   }
 
-  String _getAppBarTitle() {
-    switch (_currentStep) {
-      case 0:
-        return 'Account Type';
-      case 1:
-        return 'Your Name';
-      case 2:
-        return 'Country';
-      case 3:
-        return 'ID Verification';
-      case 4:
-        return 'ID Details';
-      default:
-        return 'Complete Profile';
-    }
+  Widget _buildBottomButton(VerificationProvider provider) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      color: context.scaffoldBackground,
+      child: MyButton(
+        buttonText: provider.getButtonText(),
+        onTap: _nextStep,
+        mHoriz: 0,
+        isLoading: provider.isLoading,
+      ),
+    );
   }
 
-  Widget _buildAccountTypeStep() {
+  // Step 1: Account Type Selection
+  Widget _buildAccountTypeStep(VerificationProvider provider) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: AppSizes.DEFAULT,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Gap(20),
+          20.height,
           MyText(
             text: 'What kind of account do you want to open?',
             color: context.text,
-            size: 24,
+            size: 24.0,
             weight: FontWeight.bold,
           ),
-          const Gap(12),
+          12.height,
           MyText(
             text: 'You can always add another account later.',
             color: context.subtitle,
-            size: 16,
+            size: 16.0,
           ),
-          const Gap(32),
-
+          32.height,
           // Personal Account Card
           _buildAccountTypeCard(
+            icon: Icons.person,
             title: 'Personal Account',
-            description: 'Shop, send and receive money around the world at lower costs.',
-            isSelected: selectedAccountType == 'Personal',
+            description:
+                'Shop, send and receive money around the world at lower costs.',
+            isSelected: provider.verificationData.accountType == 'Personal',
             onTap: () {
-              setState(() => selectedAccountType = 'Personal');
-              // Auto navigate to next step after selection
-              Future.delayed(const Duration(milliseconds: 300), () {
-                _nextStep();
-              });
+              provider.updateAccountType('Personal');
+              Future.delayed(const Duration(milliseconds: 300), _nextStep);
             },
           ),
-          const Gap(16),
-
+          16.height,
           // Business Account Card
           _buildAccountTypeCard(
+            icon: Icons.business,
             title: 'Business Account',
             description: 'Grow your business with more advanced features.',
-            isSelected: selectedAccountType == 'Business',
+            isSelected: provider.verificationData.accountType == 'Business',
             onTap: () {
-              setState(() => selectedAccountType = 'Business');
-              // Auto navigate to next step after selection
-              Future.delayed(const Duration(milliseconds: 300), () {
-                _nextStep();
-              });
+              provider.updateAccountType('Business');
+              Future.delayed(const Duration(milliseconds: 300), _nextStep);
             },
           ),
         ],
@@ -287,6 +300,7 @@ class _DetailsFormScreenState extends State<DetailsFormScreen> {
   }
 
   Widget _buildAccountTypeCard({
+    required IconData icon,
     required String title,
     required String description,
     required bool isSelected,
@@ -296,29 +310,51 @@ class _DetailsFormScreenState extends State<DetailsFormScreen> {
       onTap: onTap,
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(20),
+        padding: AppSizes.CARD_PADDING,
         decoration: BoxDecoration(
           color: isSelected ? context.primary.withOpacity(0.1) : context.card,
           border: Border.all(
             color: isSelected ? context.primary : context.border,
             width: isSelected ? 2 : 1,
           ),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(30.0),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            MyText(
-              text: title,
-              color: context.text,
-              size: 18,
-              weight: FontWeight.w600,
+            Container(
+              padding: AppSizes.CARD_PADDING,
+              decoration: BoxDecoration(
+                color: context.primary.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(30.0),
+              ),
+              child: Icon(icon, color: context.primary, size: 24.0),
             ),
-            const Gap(8),
-            MyText(
-              text: description,
-              color: context.subtitle,
-              size: 14,
+            16.width,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  MyText(
+                    text: title,
+                    color: context.text,
+                    size: 18.0,
+                    weight: FontWeight.w600,
+                  ),
+                  8.height,
+                  MyText(
+                    text: description,
+                    color: context.subtitle,
+                    size: 14.0,
+                    maxLines: 3,
+                  ),
+                ],
+              ),
+            ),
+            8.width,
+            SvgPicture.asset(
+              Assets.arrowforward,
+              height: 16.0,
+              color: context.icon,
             ),
           ],
         ),
@@ -326,98 +362,107 @@ class _DetailsFormScreenState extends State<DetailsFormScreen> {
     );
   }
 
-  Widget _buildNameStep() {
+  // Step 2: Full Name
+  Widget _buildNameStep(VerificationProvider provider) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: AppSizes.DEFAULT,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Gap(20),
+          20.height,
           MyText(
             text: 'What is your name?',
             color: context.text,
-            size: 24,
+            size: 24.0,
             weight: FontWeight.bold,
           ),
-          const Gap(12),
+          12.height,
           MyText(
             text: 'Enter your full legal name according to the identity card.',
             color: context.subtitle,
-            size: 16,
+            size: 16.0,
           ),
-          const Gap(8),
+          32.height,
           MyText(
             text: 'Full Name',
             color: context.text,
-            size: 14,
+            size: 14.0,
             weight: FontWeight.w600,
           ),
-          const Gap(32),
-
-          // Full Name Input
-          MyTextFieldPresets.name(
-            context: context,
-            controller: fullNameController,
+          8.height,
+          MyTextField(
+            controller: _fullNameController,
             hint: 'Andrew Ainsley',
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCountryStep() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Gap(20),
-          MyText(
-            text: 'Where do you come from?',
-            color: context.text,
-            size: 24,
-            weight: FontWeight.bold,
-          ),
-          const Gap(12),
-          MyText(
-            text: 'Select your country of origin. We will verify your identity in the next step of your residence.',
-            color: context.subtitle,
-            size: 16,
-          ),
-          const Gap(32),
-
-          // Search Field
-          TextField(
-            decoration: InputDecoration(
-              hintText: 'Search country',
-              prefixIcon: Icon(Icons.search, color: context.subtitle),
-              filled: true,
-              fillColor: context.card,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: context.border),
-              ),
+            prefix: SvgPicture.asset(
+              Assets.personfilled,
+              height: 16.0,
+              color: context.icon,
             ),
           ),
-          const Gap(16),
-
-          // Countries List
-          ...countries.map((country) => _buildCountryItem(country)).toList(),
         ],
       ),
     );
   }
 
-  Widget _buildCountryItem(String country) {
-    final isSelected = selectedCountry == country;
-    return GestureDetector(
-      onTap: () => setState(() => selectedCountry = country),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(color: context.border),
+  // Step 3: Country Selection
+  Widget _buildCountryStep(VerificationProvider provider) {
+    return Padding(
+      padding: AppSizes.DEFAULT,
+      child: Column(
+        children: [
+          12.height,
+          MyText(
+            text:
+                'Enter your full Country name according to the identity card.',
+            color: context.subtitle,
+            size: 16.0,
           ),
+          10.height, // Search Field
+          MyTextField(
+            hint: 'Canada',
+            prefix: SvgPicture.asset(
+              Assets.globe,
+              height: 16.0,
+              color: context.primary,
+            ),
+            controller: _countrySearchController,
+            onChanged: (value) => setState(() {}),
+            keyboardType: TextInputType.text,
+          ),
+
+          // Countries List
+          Expanded(
+            child: Consumer<VerificationProvider>(
+              builder: (context, provider, child) {
+                final searchedCountries = _countrySearchController.text.isEmpty
+                    ? provider.countries
+                    : provider.searchCountries(_countrySearchController.text);
+
+                return ListView.builder(
+                  itemCount: searchedCountries.length,
+                  itemBuilder: (context, index) {
+                    final country = searchedCountries[index];
+                    return _buildCountryItem(country, provider);
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCountryItem(Country country, VerificationProvider provider) {
+    final isSelected =
+        provider.verificationData.country?.isoCode == country.isoCode;
+
+    return GestureDetector(
+      onTap: () => provider.updateCountry(country),
+      child: Container(
+        padding: AppSizes.CARD_PADDING,
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: context.border)),
         ),
         child: Row(
           children: [
@@ -433,14 +478,23 @@ class _DetailsFormScreenState extends State<DetailsFormScreen> {
                 color: isSelected ? context.primary : Colors.transparent,
               ),
               child: isSelected
-                  ? Icon(Icons.check, size: 12, color: context.icon)
+                  ? SvgPicture.asset(
+                      Assets.check,
+                      height: 12,
+                      color: Colors.white,
+                    )
                   : null,
             ),
-            const Gap(16),
-            MyText(
-              text: country,
-              color: context.text,
-              size: 16,
+            16.width,
+            CountryPickerUtils.getDefaultFlagImage(country),
+            12.width,
+            Expanded(
+              child: MyText(
+                text: country.name,
+                color: context.text,
+                size: 16,
+                weight: FontWeight.w500,
+              ),
             ),
           ],
         ),
@@ -448,38 +502,42 @@ class _DetailsFormScreenState extends State<DetailsFormScreen> {
     );
   }
 
-  Widget _buildIdTypeStep() {
+  // Step 3: ID Type Selection Only
+  Widget _buildIdTypeSelectionStep(VerificationProvider provider) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: AppSizes.DEFAULT,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Gap(20),
+          20.height,
           MyText(
-            text: 'Proof of residency',
+            text: 'Select ID Type',
             color: context.text,
             size: 24,
             weight: FontWeight.bold,
           ),
-          const Gap(12),
+          12.height,
           MyText(
-            text: 'Choose a verification method. You will be asked for photo proof of residence in the next step.',
+            text:
+                'Choose the type of identification document you will use for verification.',
             color: context.subtitle,
             size: 16,
           ),
-          const Gap(32),
-
-          // ID Types
-          ...idTypes.map((idType) => _buildIdTypeItem(idType)).toList(),
+          32.height,
+          // ID Type Selection
+          ...provider.idTypes.map(
+            (idType) => _buildIdTypeItem(idType, provider),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildIdTypeItem(String idType) {
-    final isSelected = selectedIdType == idType;
+  Widget _buildIdTypeItem(String idType, VerificationProvider provider) {
+    final isSelected = provider.verificationData.idType == idType;
+
     return GestureDetector(
-      onTap: () => setState(() => selectedIdType = idType),
+      onTap: () => provider.updateIdType(idType),
       child: Container(
         width: double.infinity,
         margin: const EdgeInsets.only(bottom: 12),
@@ -490,7 +548,7 @@ class _DetailsFormScreenState extends State<DetailsFormScreen> {
             color: isSelected ? context.primary : context.border,
             width: isSelected ? 2 : 1,
           ),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(30.0),
         ),
         child: Row(
           children: [
@@ -506,10 +564,14 @@ class _DetailsFormScreenState extends State<DetailsFormScreen> {
                 color: isSelected ? context.primary : Colors.transparent,
               ),
               child: isSelected
-                  ? Icon(Icons.check, size: 12, color: context.icon)
+                  ? SvgPicture.asset(
+                      Assets.check,
+                      color: Colors.white,
+                      height: 16.0,
+                    )
                   : null,
             ),
-            const Gap(16),
+            16.width,
             MyText(
               text: idType,
               color: context.text,
@@ -522,50 +584,249 @@ class _DetailsFormScreenState extends State<DetailsFormScreen> {
     );
   }
 
-  Widget _buildIdDetailsStep() {
+  // Step 4: ID Capture Step
+  Widget _buildIdCaptureStep(VerificationProvider provider) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: AppSizes.DEFAULT,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Gap(20),
+          20.height,
           MyText(
-            text: 'IDENTIFICATION CARD',
+            text: 'Capture Your ${provider.verificationData.idType ?? 'ID'}',
             color: context.text,
-            size: 18,
+            size: 24,
             weight: FontWeight.bold,
           ),
-          const Gap(24),
+          12.height,
+          MyText(
+            text:
+                'Capture both front and back sides of your ${provider.verificationData.idType?.toLowerCase() ?? 'ID'}',
+            color: context.subtitle,
+            size: 16,
+          ),
+          32.height,
+          // ID Front Capture
+          _buildIdCaptureCard(
+            title: 'Front Side',
+            imagePath: provider.verificationData.idFrontImagePath,
+            onTap: () async {
+              final imagePath = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ScanScreen(
+                    title: 'Capture ${provider.verificationData.idType} Front',
+                    isSelfie: false,
+                  ),
+                ),
+              );
+              if (imagePath != null) {
+                provider.updateIdFrontImage(imagePath);
+              }
+            },
+          ),
 
-          // ID Preview Card
-          Container(
+          24.height,
+          // ID Back Capture
+          _buildIdCaptureCard(
+            title: 'Back Side',
+            imagePath: provider.verificationData.idBackImagePath,
+            onTap: () async {
+              final imagePath = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ScanScreen(
+                    title: 'Capture ${provider.verificationData.idType} Back',
+                    isSelfie: false,
+                  ),
+                ),
+              );
+              if (imagePath != null) {
+                provider.updateIdBackImage(imagePath);
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIdCaptureCard({
+    required String title,
+    required String? imagePath,
+    required VoidCallback onTap,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        MyText(
+          text: title,
+          color: context.text,
+          size: 14,
+          weight: FontWeight.w600,
+        ),
+        8.height,
+        GestureDetector(
+          onTap: onTap,
+          child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(20),
+            height: 200,
             decoration: BoxDecoration(
               color: context.card,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: context.border),
+              borderRadius: BorderRadius.circular(16.0),
+              border: Border.all(
+                color: imagePath != null ? context.primary : context.border,
+                width: imagePath != null ? 2 : 1,
+              ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildIdDetailRow('Name', fullNameController.text.isNotEmpty ? fullNameController.text : 'Andrew Ainsley'),
-                _buildIdDetailRow('ID Number', idNumberController.text.isNotEmpty ? idNumberController.text : '573183659'),
-                _buildIdDetailRow('Country', selectedCountry ?? 'United States'),
-                _buildIdDetailRow('Issued', idIssueDate != null ? 'Dec ${idIssueDate!.year}' : 'Dec 2023'),
-                _buildIdDetailRow('Expires', idExpiryDate != null ? 'Nov ${idExpiryDate!.year}' : 'Nov 2026'),
-              ],
-            ),
+            child: imagePath != null && File(imagePath).existsSync()
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(18.0),
+                    child: Image.file(File(imagePath), fit: BoxFit.cover),
+                  )
+                : Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SvgPicture.asset(
+                        Assets.camera,
+                        color: context.icon,
+                        height: 30.0,
+                      ),
+                      8.height,
+                      MyText(
+                        text: 'Tap to Capture $title',
+                        color: context.subtitle,
+                        size: 14.0,
+                      ),
+                    ],
+                  ),
           ),
-          const Gap(32),
+        ),
+      ],
+    );
+  }
 
-          // ID Number Input
-          MyTextFieldPresets.name(
-            context: context,
-            controller: idNumberController,
-            hint: 'Enter ID Number',
+  // Step 5: Selfie with ID Step
+  Widget _buildSelfieWithIdStep(VerificationProvider provider) {
+    return SingleChildScrollView(
+      padding: AppSizes.DEFAULT,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          MyText(
+            text: 'Take Selfie with ${provider.verificationData.idType}',
+            color: context.text,
+            size: 18.0,
+            weight: FontWeight.bold,
           ),
-          const Gap(16),
+          12.height,
+          
+          // // Instructions
+          // Container(
+          //   padding: AppSizes.DEFAULT,
+          //   decoration: BoxDecoration(
+          //     color: context.primary.withOpacity(0.1),
+          //     borderRadius: BorderRadius.circular(16.0),
+          //   ),
+          //   child: Column(
+          //     children: [
+          //       SvgPicture.asset(
+          //         Assets.info,
+          //         color: context.icon,
+          //         height: 16.0,
+          //       ),
+          //       8.height,
+          //       MyText(
+          //         text:
+          //             'Make sure:\n• Your face is clearly visible\n• ${provider.verificationData.idType} is readable\n• Both are in the frame',
+          //         color: context.text,
+          //         size: 16.0,
+          //         textAlign: TextAlign.center,
+          //       ),
+          //     ],
+          //   ),
+          // ),
+          // 24.height,
+          // Display captured selfie
+if (provider.verificationData.selfieWithIdImagePath != null)
+  Container(
+    width: 200, // Width of oval
+    height: 250, // Height of oval
+    decoration: BoxDecoration(
+      shape: BoxShape.circle, // For perfect circle
+      border: Border.all(color: context.primary, width: 2),
+      // If you want an oval instead of circle, use borderRadius:
+      // borderRadius: BorderRadius.circular(125),
+    ),
+    child: ClipOval(
+      child: Image.file(
+        File(provider.verificationData.selfieWithIdImagePath!),
+        fit: BoxFit.cover,
+      ),
+    ),
+  ),
+
+          24.height,
+          // Take Selfie Button
+          MyButton(
+            buttonText: provider.verificationData.selfieWithIdImagePath != null
+                ? 'Retake Selfie with ID'
+                : 'Take Selfie with ID',
+            onTap: () async {
+              final selfiePath = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ScanScreen(
+                    title:
+                        'Take Selfie with ${provider.verificationData.idType}',
+                    isSelfie: true,
+                  ),
+                ),
+              );
+
+              if (selfiePath != null) {
+                provider.updateSelfieWithId(selfiePath);
+              }
+            },
+          ),
+
+          16.height,
+          // ID Details Section for modification
+          if (provider.verificationData.idFrontImagePath != null)
+            _buildIdDetailsSection(provider),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIdDetailsSection(VerificationProvider provider) {
+    return Container(
+      width: double.infinity,
+      padding: AppSizes.CARD_PADDING,
+      decoration: BoxDecoration(
+        color: context.card,
+        borderRadius: BorderRadius.circular(16.0),
+        border: Border.all(color: context.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          MyText(
+            text: 'ID Details (Optional)',
+            color: context.text,
+            size: 16,
+            weight: FontWeight.w600,
+          ),
+          16.height,
+          // ID Number Input
+          MyText(
+            text: 'ID Number',
+            color: context.text,
+            size: 14,
+            weight: FontWeight.w500,
+          ),
+          8.height,
+          MyTextField(hint: 'ID Number', controller: _idNumberController),
 
           // Issue and Expiry Dates
           Row(
@@ -573,41 +834,19 @@ class _DetailsFormScreenState extends State<DetailsFormScreen> {
               Expanded(
                 child: _buildDateField(
                   label: 'Issued Date',
-                  date: idIssueDate,
-                  onTap: () => _selectDate(context, true),
+                  date: provider.verificationData.issueDate,
+                  onTap: () => _selectDate(context, true, provider),
                 ),
               ),
-              const Gap(12),
+              12.width,
               Expanded(
                 child: _buildDateField(
                   label: 'Expiry Date',
-                  date: idExpiryDate,
-                  onTap: () => _selectDate(context, false),
+                  date: provider.verificationData.expiryDate,
+                  onTap: () => _selectDate(context, false, provider),
                 ),
               ),
             ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildIdDetailRow(String label, String value) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          MyText(
-            text: label,
-            color: context.subtitle,
-            size: 14,
-          ),
-          MyText(
-            text: value,
-            color: context.text,
-            size: 14,
-            weight: FontWeight.w500,
           ),
         ],
       ),
@@ -628,25 +867,25 @@ class _DetailsFormScreenState extends State<DetailsFormScreen> {
           size: 14,
           weight: FontWeight.w500,
         ),
-        const Gap(8),
+        8.height,
         GestureDetector(
           onTap: onTap,
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+            padding: AppSizes.CARD_PADDING,
             decoration: BoxDecoration(
-              color: context.card,
-              borderRadius: BorderRadius.circular(8),
+              color: context.scaffoldBackground,
+              borderRadius: BorderRadius.circular(16.0),
               border: Border.all(color: context.border),
             ),
             child: Row(
               children: [
-                Icon(
-                  Icons.calendar_today,
-                  color: context.subtitle,
-                  size: 20,
+                SvgPicture.asset(
+                  Assets.info,
+                  color: context.icon,
+                  height: 16.0,
                 ),
-                const Gap(12),
+                8.width,
                 MyText(
                   text: date != null
                       ? '${date.day}/${date.month}/${date.year}'
@@ -662,21 +901,24 @@ class _DetailsFormScreenState extends State<DetailsFormScreen> {
     );
   }
 
-  Future<void> _selectDate(BuildContext context, bool isIssueDate) async {
+  Future<void> _selectDate(
+    BuildContext context,
+    bool isIssueDate,
+    VerificationProvider provider,
+  ) async {
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
       firstDate: DateTime(2000),
       lastDate: DateTime(2030),
     );
+
     if (picked != null) {
-      setState(() {
-        if (isIssueDate) {
-          idIssueDate = picked;
-        } else {
-          idExpiryDate = picked;
-        }
-      });
+      if (isIssueDate) {
+        provider.updateIssueDate(picked);
+      } else {
+        provider.updateExpiryDate(picked);
+      }
     }
   }
 }

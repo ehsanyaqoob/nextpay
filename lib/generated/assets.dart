@@ -186,5 +186,7 @@ class Assets {
   static const String arrowforward = "assets/images/arrowforward.svg";
   static const String stop = "assets/images/stopcamera.svg";
   static const String flip = "assets/images/flip.svg";
+    static const String globe = "assets/images/globe.svg";
+
 
 }

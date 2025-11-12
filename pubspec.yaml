@@ -26,7 +26,11 @@ dependencies:
   smooth_page_indicator: 
   bounce: 
   pinput: 
-
+  country_pickers:
+  camera:
+  image_picker:
+  path_provider:
+  permission_handler:
   
 
 

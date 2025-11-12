@@ -1,5 +1,4 @@
 import 'package:nextpay/export.dart';
-import 'package:nextpay/widget/common/toasts.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -28,7 +27,11 @@ class _HomeScreenState extends State<HomeScreen> {
     return WillPopScope(
       onWillPop: _onWillPop,
 
-      child: Scaffold(backgroundColor: context.primary),
+      child: Scaffold(backgroundColor: context.scaffoldBackground,
+      // 
+      
+      
+      ),
     );
   }
 }

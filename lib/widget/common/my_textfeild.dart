@@ -1,4 +1,7 @@
+import 'package:country_pickers/country.dart';
+import 'package:country_pickers/utils/utils.dart';
 import 'package:nextpay/export.dart';
+import 'package:nextpay/providers/verification_provider.dart';
 
 class MyTextField extends StatefulWidget {
   final String? label;
@@ -254,6 +257,68 @@ Widget build(BuildContext context) {
 // ========== CONVENIENCE CONSTRUCTORS ==========
 
 extension MyTextFieldPresets on MyTextField {
+  // Inside MyTextFieldPresets extension
+static MyTextField country({
+  required BuildContext context,
+  TextEditingController? controller,
+  String? hint = 'Select country',
+  ValueChanged<Country>? onChanged,
+  Country? selectedCountry,
+}) => MyTextField(
+  controller: controller,
+  hint: hint,
+  isReadOnly: true,
+  onTap: () async {
+    // Show country picker dialog
+    Country? country = await showDialog<Country>(
+      context: context,
+      builder: (_) => Dialog(
+        child: SizedBox(
+          height: 400,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Text(
+                  'Select Country',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: ThemeColors.text(context),
+                  ),
+                ),
+              ),
+              const Divider(),
+              Expanded(
+                child: ListView(
+                  children: VerificationProvider()
+                      .countries // use full country list
+                      .map((c) => ListTile(
+                            leading: CountryPickerUtils.getDefaultFlagImage(c),
+                            title: Text(c.name),
+                            onTap: () => Navigator.pop(context, c),
+                          ))
+                      .toList(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (country != null) {
+      controller?.text = country.name;
+      onChanged?.call(country);
+    }
+  },
+  prefix: SvgPicture.asset(
+    Assets.globe,
+    height: 16,
+    color: context.icon,
+  ),
+);
+
   // Email field
   static MyTextField email({
     BuildContext? context,

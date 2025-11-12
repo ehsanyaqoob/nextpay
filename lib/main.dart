@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
 import 'package:nextpay/core/navigation/navigation_provider.dart';
 import 'package:nextpay/core/utils/app_routes.dart';
+import 'package:nextpay/providers/verification_provider.dart';
 import 'export.dart';
 
 void main() {
@@ -19,6 +19,8 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => NavigationProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => VerificationProvider()),
+
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, _) {
