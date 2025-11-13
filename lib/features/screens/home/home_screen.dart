@@ -26,12 +26,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: _onWillPop,
-
-      child: Scaffold(backgroundColor: context.scaffoldBackground,
-      // 
-      
-      
-      ),
+      child: Scaffold(backgroundColor: context.scaffoldBackground),
     );
   }
 }

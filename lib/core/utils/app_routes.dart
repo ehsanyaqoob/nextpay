@@ -3,6 +3,7 @@ import 'package:nextpay/core/navigation/route_transition.dart';
 import 'package:nextpay/features/auth/screens/details_form_screen.dart';
 import 'package:nextpay/features/auth/screens/forgot_pass_screen.dart';
 import 'package:nextpay/features/auth/screens/get_start_screen.dart';
+import 'package:nextpay/features/auth/screens/set_pin_screen.dart';
 import 'package:nextpay/features/auth/screens/signIn_screen.dart';
 import 'package:nextpay/features/auth/screens/sign_up_screen.dart';
 import 'package:nextpay/features/screens/home/home_screen.dart';
@@ -18,7 +19,7 @@ class AppLinks {
   static const detailsform = '/detailsform';
   static const forgot = '/forgot';
   static const home = '/home';
-
+  static const setpin = '/setpin';
 }
 
 class AppRoutes {
@@ -32,19 +33,24 @@ class AppRoutes {
         return _buildRoute(const SigninScreen(), RouteTransition.rightToLeft);
       case AppLinks.signup:
         return _buildRoute(const SignUpScreen(), RouteTransition.leftToRight);
-        case AppLinks.detailsform:
-        return _buildRoute(const DetailsFormScreen(), RouteTransition.rightToLeft);
+      case AppLinks.detailsform:
+        return _buildRoute(
+          const DetailsFormScreen(),
+          RouteTransition.rightToLeft,
+        );
       case AppLinks.forgot:
         return _buildRoute(
           const ForgotPasswordScreen(),
           RouteTransition.rightToLeft,
         );
-        
+
       case AppLinks.onboarding:
         return _buildRoute(const OnBoardingScreen());
 
       case AppLinks.home:
-        return _buildRoute(const HomeScreen());
+        return _buildRoute(const HomeScreen(), RouteTransition.fade);
+      case AppLinks.setpin:
+        return _buildRoute(const SetPinScreen(), RouteTransition.fade);
 
       default:
         return MaterialPageRoute(

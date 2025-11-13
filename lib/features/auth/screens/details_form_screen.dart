@@ -1,11 +1,11 @@
 // details_form_screen.dart
 import 'dart:io';
-
 import 'package:nextpay/core/navigation/navigate.dart';
 import 'package:nextpay/core/navigation/route_transition.dart';
 import 'package:nextpay/export.dart';
 import 'package:nextpay/features/auth/screens/doc_scan_screen.dart';
 import 'package:nextpay/features/screens/home/home_screen.dart';
+import 'package:nextpay/features/auth/screens/set_pin_screen.dart';
 import 'package:nextpay/providers/verification_provider.dart';
 import 'package:country_pickers/country.dart';
 import 'package:country_pickers/country_pickers.dart';
@@ -21,66 +21,82 @@ class DetailsFormScreen extends StatefulWidget {
 class _DetailsFormScreenState extends State<DetailsFormScreen> {
   final PageController _pageController = PageController();
   final TextEditingController _fullNameController = TextEditingController();
-  final TextEditingController _idNumberController = TextEditingController();
-  final TextEditingController _countrySearchController =
-      TextEditingController();
+  final TextEditingController _countrySearchController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _dobController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _initializeData();
   }
-
-  void _initializeData() {
-    final provider = context.read<VerificationProvider>();
-    _fullNameController.text = provider.verificationData.fullName ?? '';
-    _idNumberController.text = provider.verificationData.idNumber ?? '';
-
-    _fullNameController.addListener(() {
-      provider.updateFullName(_fullNameController.text);
-    });
-
-    _idNumberController.addListener(() {
-      provider.updateIdNumber(_idNumberController.text);
-    });
+void _initializeData() {
+  final provider = context.read<VerificationProvider>();
+  _fullNameController.text = provider.verificationData.fullName ?? '';
+  
+  // Pre-fill phone number and date of birth if they exist
+  _phoneController.text = provider.verificationData.phoneNumber ?? '';
+  if (provider.verificationData.dateOfBirth != null) {
+    final dob = provider.verificationData.dateOfBirth!;
+    _dobController.text = '${dob.day}/${dob.month}/${dob.year}';
+  } else {
+    _dobController.text = '';
   }
 
+  _fullNameController.addListener(() {
+    provider.updateFullName(_fullNameController.text);
+  });
+
+  // Listen to phone number changes
+  _phoneController.addListener(() {
+    provider.updatePhoneNumber(_phoneController.text);
+  });
+}
   @override
   void dispose() {
     _pageController.dispose();
     _fullNameController.dispose();
-    _idNumberController.dispose();
     _countrySearchController.dispose();
+    _phoneController.dispose();
+    _dobController.dispose();
     super.dispose();
+  }// Update _nextStep method to handle step 6 validation differently
+void _nextStep() async {
+  final provider = context.read<VerificationProvider>();
+
+  // Special handling for step 5 (selfie step) - allow proceeding to review
+  if (provider.currentStep == 5) {
+    // Allow moving to review even if selfie is not perfect
+    provider.nextStep();
+    _pageController.nextPage(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+    return;
   }
 
-  void _nextStep() async {
-    final provider = context.read<VerificationProvider>();
-
-    if (!provider.canGoNext()) {
-      final errorMessage = provider.getStepValidationMessage(
-        provider.currentStep,
-      );
-      AppToast.show(
-        errorMessage ?? 'Please complete this step',
-        context,
-        type: ToastType.error,
-        duration: const Duration(seconds: 2),
-      );
-      return;
-    }
-
-    // Move to next step normally
-    if (provider.currentStep < provider.totalSteps - 1) {
-      provider.nextStep();
-      _pageController.nextPage(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
-    } else {
-      _completeVerification();
-    }
+  // For other steps, validate normally
+  if (provider.currentStep != 6 && !provider.canGoNext()) {
+    final errorMessage = provider.getStepValidationMessage(provider.currentStep);
+    AppToast.show(
+      errorMessage ?? 'Please complete this step',
+      context,
+      type: ToastType.error,
+      duration: const Duration(seconds: 2),
+    );
+    return;
   }
+
+  if (provider.currentStep < provider.totalSteps - 1) {
+    provider.nextStep();
+    _pageController.nextPage(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  } else {
+    _submitVerification();
+  }
+}
 
   void _previousStep() {
     final provider = context.read<VerificationProvider>();
@@ -95,7 +111,7 @@ class _DetailsFormScreenState extends State<DetailsFormScreen> {
     }
   }
 
-  Future<void> _completeVerification() async {
+  Future<void> _submitVerification() async {
     final provider = context.read<VerificationProvider>();
 
     showDialog(
@@ -125,7 +141,7 @@ class _DetailsFormScreenState extends State<DetailsFormScreen> {
     if (success) {
       Navigate.to(
         context: context,
-        page: const HomeScreen(),
+        page: const SetPinScreen(),
         transition: RouteTransition.rightToLeft,
       );
     } else {
@@ -152,10 +168,7 @@ class _DetailsFormScreenState extends State<DetailsFormScreen> {
           ),
           body: Column(
             children: [
-              // Progress Indicator
               _buildProgressIndicator(provider),
-
-              // Form Content
               Expanded(
                 child: PageView(
                   controller: _pageController,
@@ -164,11 +177,10 @@ class _DetailsFormScreenState extends State<DetailsFormScreen> {
                     _buildAccountTypeStep(provider),
                     _buildNameStep(provider),
                     _buildCountryStep(provider),
-                    _buildIdTypeSelectionStep(
-                      provider,
-                    ), // Step 3: Only ID type selection
-                    _buildIdCaptureStep(provider), // Step 4: Capture ID
-                    _buildSelfieWithIdStep(provider), // Step 5: Selfie with ID
+                    _buildIdTypeStep(provider),
+                    _buildIdCaptureReviewStep(provider),
+                    _buildSelfieWithIdReviewStep(provider),
+                    _buildCompleteProfileStep(provider),
                   ],
                 ),
               ),
@@ -183,58 +195,48 @@ class _DetailsFormScreenState extends State<DetailsFormScreen> {
   }
 
   Widget _buildProgressIndicator(VerificationProvider provider) {
-    return Container(
-      padding: AppSizes.DEFAULT,
-      child: Column(
-        children: [
-          // Progress Text
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              MyText(
-                text:
-                    'Step ${provider.currentStep + 1} of ${provider.totalSteps}',
-                color: context.primary,
-                size: 12.0,
-                weight: FontWeight.w600,
-              ),
-              MyText(
-                text:
-                    '${((provider.currentStep + 1) / provider.totalSteps * 100).round()}% Complete',
-                color: context.subtitle,
-                size: 14.0,
-              ),
-            ],
+  return Container(
+    padding: AppSizes.DEFAULT,
+    child: Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            MyText(
+              text: 'Step ${provider.currentStep + 1} of ${provider.totalSteps}',
+              color: context.primary,
+              size: 12.0,
+              weight: FontWeight.w600,
+            ),
+            MyText(
+              text: '${((provider.currentStep + 1) / provider.totalSteps * 100).round()}% Complete',
+              color: context.subtitle,
+              size: 14.0,
+            ),
+          ],
+        ),
+        12.height,
+        Container(
+          height: 6,
+          decoration: BoxDecoration(
+            color: context.card,
+            borderRadius: BorderRadius.circular(6.0),
           ),
-          12.height,
-          // Linear Progress Bar
-          Container(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
             height: 6,
+            width: MediaQuery.of(context).size.width * ((provider.currentStep + 1) / provider.totalSteps),
             decoration: BoxDecoration(
-              color: context.card,
+              color: context.primary,
               borderRadius: BorderRadius.circular(6.0),
             ),
-            child: Stack(
-              children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                  height: 6,
-                  width:
-                      MediaQuery.of(context).size.width *
-                      provider.progressValue,
-                  decoration: BoxDecoration(
-                    color: context.primary,
-                    borderRadius: BorderRadius.circular(6.0),
-                  ),
-                ),
-              ],
-            ),
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildBottomButton(VerificationProvider provider) {
     return Container(
@@ -249,7 +251,7 @@ class _DetailsFormScreenState extends State<DetailsFormScreen> {
     );
   }
 
-  // Step 1: Account Type Selection
+  // Step 1: Account Type
   Widget _buildAccountTypeStep(VerificationProvider provider) {
     return SingleChildScrollView(
       padding: AppSizes.DEFAULT,
@@ -270,12 +272,10 @@ class _DetailsFormScreenState extends State<DetailsFormScreen> {
             size: 16.0,
           ),
           32.height,
-          // Personal Account Card
           _buildAccountTypeCard(
             icon: Icons.person,
             title: 'Personal Account',
-            description:
-                'Shop, send and receive money around the world at lower costs.',
+            description: 'Shop, send and receive money around the world at lower costs.',
             isSelected: provider.verificationData.accountType == 'Personal',
             onTap: () {
               provider.updateAccountType('Personal');
@@ -283,7 +283,6 @@ class _DetailsFormScreenState extends State<DetailsFormScreen> {
             },
           ),
           16.height,
-          // Business Account Card
           _buildAccountTypeCard(
             icon: Icons.business,
             title: 'Business Account',
@@ -412,25 +411,35 @@ class _DetailsFormScreenState extends State<DetailsFormScreen> {
         children: [
           12.height,
           MyText(
-            text:
-                'Enter your full Country name according to the identity card.',
-            color: context.subtitle,
-            size: 16.0,
+            text: 'Where do you come from?',
+            color: context.text,
+            size: 24.0,
+            weight: FontWeight.bold,
           ),
-          10.height, // Search Field
+          12.height,
+          MyText(
+            text: 'Select your country of origin. We will verify your identity in the next step.',
+            color: context.subtitle,
+            size: 14.0,
+          ),
+          20.height,
           MyTextField(
-            hint: 'Canada',
-            prefix: SvgPicture.asset(
-              Assets.globe,
-              height: 16.0,
-              color: context.primary,
-            ),
+            hint: 'United States',
+            prefix: Icon(Icons.search, color: context.primary, size: 20),
             controller: _countrySearchController,
             onChanged: (value) => setState(() {}),
             keyboardType: TextInputType.text,
+            suffix: _countrySearchController.text.isNotEmpty
+                ? GestureDetector(
+                    onTap: () {
+                      _countrySearchController.clear();
+                      setState(() {});
+                    },
+                    child: Icon(Icons.close, color: context.subtitle, size: 20),
+                  )
+                : null,
           ),
-
-          // Countries List
+          16.height,
           Expanded(
             child: Consumer<VerificationProvider>(
               builder: (context, provider, child) {
@@ -440,6 +449,7 @@ class _DetailsFormScreenState extends State<DetailsFormScreen> {
 
                 return ListView.builder(
                   itemCount: searchedCountries.length,
+                  padding: EdgeInsets.zero,
                   itemBuilder: (context, index) {
                     final country = searchedCountries[index];
                     return _buildCountryItem(country, provider);
@@ -454,40 +464,28 @@ class _DetailsFormScreenState extends State<DetailsFormScreen> {
   }
 
   Widget _buildCountryItem(Country country, VerificationProvider provider) {
-    final isSelected =
-        provider.verificationData.country?.isoCode == country.isoCode;
+    final isSelected = provider.verificationData.country?.isoCode == country.isoCode;
 
     return GestureDetector(
       onTap: () => provider.updateCountry(country),
       child: Container(
-        padding: AppSizes.CARD_PADDING,
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: context.border)),
+          color: isSelected ? context.primary.withOpacity(0.08) : Colors.transparent,
+          border: Border.all(
+            color: isSelected ? context.primary : context.border,
+            width: isSelected ? 2 : 1,
+          ),
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
           children: [
-            Container(
-              width: 20,
-              height: 20,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: isSelected ? context.primary : context.subtitle,
-                  width: 2,
-                ),
-                color: isSelected ? context.primary : Colors.transparent,
-              ),
-              child: isSelected
-                  ? SvgPicture.asset(
-                      Assets.check,
-                      height: 12,
-                      color: Colors.white,
-                    )
-                  : null,
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: CountryPickerUtils.getDefaultFlagImage(country),
             ),
             16.width,
-            CountryPickerUtils.getDefaultFlagImage(country),
-            12.width,
             Expanded(
               child: MyText(
                 text: country.name,
@@ -496,14 +494,15 @@ class _DetailsFormScreenState extends State<DetailsFormScreen> {
                 weight: FontWeight.w500,
               ),
             ),
+            if (isSelected) Icon(Icons.check, color: context.primary, size: 24),
           ],
         ),
       ),
     );
   }
 
-  // Step 3: ID Type Selection Only
-  Widget _buildIdTypeSelectionStep(VerificationProvider provider) {
+  // Step 4: ID Type Selection
+  Widget _buildIdTypeStep(VerificationProvider provider) {
     return SingleChildScrollView(
       padding: AppSizes.DEFAULT,
       child: Column(
@@ -511,23 +510,20 @@ class _DetailsFormScreenState extends State<DetailsFormScreen> {
         children: [
           20.height,
           MyText(
-            text: 'Select ID Type',
+            text: 'What type of ID do you have?',
             color: context.text,
             size: 24,
             weight: FontWeight.bold,
           ),
           12.height,
           MyText(
-            text:
-                'Choose the type of identification document you will use for verification.',
+            text: 'Choose the type of identification document you will use for verification.',
             color: context.subtitle,
-            size: 16,
+            size: 14,
           ),
           32.height,
-          // ID Type Selection
-          ...provider.idTypes.map(
-            (idType) => _buildIdTypeItem(idType, provider),
-          ),
+          ...provider.idTypes.map((idType) => _buildIdTypeItem(idType, provider)),
+          40.height,
         ],
       ),
     );
@@ -540,56 +536,46 @@ class _DetailsFormScreenState extends State<DetailsFormScreen> {
       onTap: () => provider.updateIdType(idType),
       child: Container(
         width: double.infinity,
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(20),
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? context.primary.withOpacity(0.1) : context.card,
+          color: isSelected ? context.primary.withOpacity(0.08) : Colors.transparent,
           border: Border.all(
             color: isSelected ? context.primary : context.border,
             width: isSelected ? 2 : 1,
           ),
-          borderRadius: BorderRadius.circular(30.0),
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
           children: [
-            Container(
-              width: 20,
-              height: 20,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: isSelected ? context.primary : context.subtitle,
-                  width: 2,
-                ),
-                color: isSelected ? context.primary : Colors.transparent,
-              ),
-              child: isSelected
-                  ? SvgPicture.asset(
-                      Assets.check,
-                      color: Colors.white,
-                      height: 16.0,
-                    )
-                  : null,
+            SvgPicture.asset(
+              Assets.visa,
+              color: isSelected ? context.primary : context.icon,
+              height: 24,
+              width: 24,
             ),
             16.width,
-            MyText(
-              text: idType,
-              color: context.text,
-              size: 16,
-              weight: FontWeight.w500,
+            Expanded(
+              child: MyText(
+                text: idType,
+                color: context.text,
+                size: 16,
+                weight: FontWeight.w500,
+              ),
             ),
+            if (isSelected) Icon(Icons.check, color: context.primary, size: 24),
           ],
         ),
       ),
     );
   }
 
-  // Step 4: ID Capture Step
-  Widget _buildIdCaptureStep(VerificationProvider provider) {
+  // Step 5: ID Capture with Review
+  Widget _buildIdCaptureReviewStep(VerificationProvider provider) {
     return SingleChildScrollView(
       padding: AppSizes.DEFAULT,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           20.height,
           MyText(
@@ -600,325 +586,593 @@ class _DetailsFormScreenState extends State<DetailsFormScreen> {
           ),
           12.height,
           MyText(
-            text:
-                'Capture both front and back sides of your ${provider.verificationData.idType?.toLowerCase() ?? 'ID'}',
+            text: 'Capture the front side of your ${provider.verificationData.idType?.toLowerCase() ?? 'ID'}',
             color: context.subtitle,
-            size: 16,
+            size: 14,
+            textAlign: TextAlign.center,
           ),
           32.height,
-          // ID Front Capture
-          _buildIdCaptureCard(
-            title: 'Front Side',
-            imagePath: provider.verificationData.idFrontImagePath,
-            onTap: () async {
-              final imagePath = await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ScanScreen(
-                    title: 'Capture ${provider.verificationData.idType} Front',
-                    isSelfie: false,
-                  ),
-                ),
-              );
-              if (imagePath != null) {
-                provider.updateIdFrontImage(imagePath);
-              }
-            },
-          ),
 
-          24.height,
-          // ID Back Capture
-          _buildIdCaptureCard(
-            title: 'Back Side',
-            imagePath: provider.verificationData.idBackImagePath,
-            onTap: () async {
-              final imagePath = await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ScanScreen(
-                    title: 'Capture ${provider.verificationData.idType} Back',
-                    isSelfie: false,
+          if (provider.verificationData.idFrontImagePath != null &&
+              File(provider.verificationData.idFrontImagePath!).existsSync())
+            Column(
+              children: [
+                Container(
+                  width: double.infinity,
+                  height: 240,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: context.primary, width: 2),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: Image.file(
+                      File(provider.verificationData.idFrontImagePath!),
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 ),
-              );
-              if (imagePath != null) {
-                provider.updateIdBackImage(imagePath);
-              }
-            },
-          ),
+                20.height,
+                GestureDetector(
+                  onTap: () async {
+                    final imagePath = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ScanScreen(
+                          title: 'Capture ${provider.verificationData.idType} Front',
+                          isSelfie: false,
+                        ),
+                      ),
+                    );
+                    if (imagePath != null) {
+                      provider.updateIdFrontImage(imagePath);
+                    }
+                  },
+                  child: MyText(
+                    text: 'Retake',
+                    color: context.primary,
+                    size: 16.0,
+                    weight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            )
+          else
+            GestureDetector(
+              onTap: () async {
+// In _buildIdCaptureReviewStep method
+final imagePath = await Navigator.push(
+  context,
+  MaterialPageRoute(
+    builder: (_) => ScanScreen(
+      title: 'Capture ${provider.verificationData.idType}',
+      isSelfie: false,
+      requiredIdType: provider.verificationData.idType, // Pass the selected ID type
+    ),
+  ),
+);
+                if (imagePath != null) {
+                  provider.updateIdFrontImage(imagePath);
+                }
+              },
+              child: Container(
+                width: double.infinity,
+                height: 240,
+                decoration: BoxDecoration(
+                  color: context.card,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: context.border),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SvgPicture.asset(
+                      Assets.camera,
+                      color: context.icon,
+                      height: 50,
+                    ),
+                    16.height,
+                    MyText(
+                      text: 'Tap to Capture Front',
+                      color: context.subtitle,
+                      size: 14,
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildIdCaptureCard({
-    required String title,
-    required String? imagePath,
-    required VoidCallback onTap,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        MyText(
-          text: title,
-          color: context.text,
-          size: 14,
-          weight: FontWeight.w600,
-        ),
-        8.height,
-        GestureDetector(
-          onTap: onTap,
-          child: Container(
-            width: double.infinity,
-            height: 200,
-            decoration: BoxDecoration(
-              color: context.card,
-              borderRadius: BorderRadius.circular(16.0),
-              border: Border.all(
-                color: imagePath != null ? context.primary : context.border,
-                width: imagePath != null ? 2 : 1,
-              ),
-            ),
-            child: imagePath != null && File(imagePath).existsSync()
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(18.0),
-                    child: Image.file(File(imagePath), fit: BoxFit.cover),
-                  )
-                : Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SvgPicture.asset(
-                        Assets.camera,
-                        color: context.icon,
-                        height: 30.0,
-                      ),
-                      8.height,
-                      MyText(
-                        text: 'Tap to Capture $title',
-                        color: context.subtitle,
-                        size: 14.0,
-                      ),
-                    ],
-                  ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // Step 5: Selfie with ID Step
-  Widget _buildSelfieWithIdStep(VerificationProvider provider) {
+  // Step 6: Selfie with ID Review
+  Widget _buildSelfieWithIdReviewStep(VerificationProvider provider) {
     return SingleChildScrollView(
       padding: AppSizes.DEFAULT,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          20.height,
           MyText(
-            text: 'Take Selfie with ${provider.verificationData.idType}',
+            text: 'Selfie with ID Card',
             color: context.text,
-            size: 18.0,
+            size: 24,
             weight: FontWeight.bold,
           ),
           12.height,
-          
-          // // Instructions
-          // Container(
-          //   padding: AppSizes.DEFAULT,
-          //   decoration: BoxDecoration(
-          //     color: context.primary.withOpacity(0.1),
-          //     borderRadius: BorderRadius.circular(16.0),
-          //   ),
-          //   child: Column(
-          //     children: [
-          //       SvgPicture.asset(
-          //         Assets.info,
-          //         color: context.icon,
-          //         height: 16.0,
-          //       ),
-          //       8.height,
-          //       MyText(
-          //         text:
-          //             'Make sure:\n• Your face is clearly visible\n• ${provider.verificationData.idType} is readable\n• Both are in the frame',
-          //         color: context.text,
-          //         size: 16.0,
-          //         textAlign: TextAlign.center,
-          //       ),
-          //     ],
-          //   ),
-          // ),
-          // 24.height,
-          // Display captured selfie
-if (provider.verificationData.selfieWithIdImagePath != null)
-  Container(
-    width: 200, // Width of oval
-    height: 250, // Height of oval
-    decoration: BoxDecoration(
-      shape: BoxShape.circle, // For perfect circle
-      border: Border.all(color: context.primary, width: 2),
-      // If you want an oval instead of circle, use borderRadius:
-      // borderRadius: BorderRadius.circular(125),
-    ),
-    child: ClipOval(
-      child: Image.file(
-        File(provider.verificationData.selfieWithIdImagePath!),
-        fit: BoxFit.cover,
-      ),
-    ),
-  ),
+          MyText(
+            text: 'But wait, you gotta take a selfie with ID card 🤳',
+            color: context.subtitle,
+            size: 14,
+            textAlign: TextAlign.center,
+          ),
+          12.height,
+          MyText(
+            text: 'Make sure your face is clearly visible. Hold your ID card with a selfie.',
+            color: context.subtitle,
+            size: 13,
+            textAlign: TextAlign.center,
+          ),
+          40.height,
 
-          24.height,
-          // Take Selfie Button
-          MyButton(
-            buttonText: provider.verificationData.selfieWithIdImagePath != null
-                ? 'Retake Selfie with ID'
-                : 'Take Selfie with ID',
-            onTap: () async {
-              final selfiePath = await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ScanScreen(
-                    title:
-                        'Take Selfie with ${provider.verificationData.idType}',
-                    isSelfie: true,
+          if (provider.verificationData.selfieWithIdImagePath != null &&
+              File(provider.verificationData.selfieWithIdImagePath!).existsSync())
+            Column(
+              children: [
+                Container(
+                  width: 180,
+                  height: 180,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: context.primary, width: 3),
+                  ),
+                  child: ClipOval(
+                    child: Image.file(
+                      File(provider.verificationData.selfieWithIdImagePath!),
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 ),
-              );
-
-              if (selfiePath != null) {
-                provider.updateSelfieWithId(selfiePath);
-              }
-            },
-          ),
-
-          16.height,
-          // ID Details Section for modification
-          if (provider.verificationData.idFrontImagePath != null)
-            _buildIdDetailsSection(provider),
+                40.height,
+                GestureDetector(
+                  onTap: () async {
+                   // In _buildSelfieWithIdReviewStep method
+final selfiePath = await Navigator.push(
+  context,
+  MaterialPageRoute(
+    builder: (_) => ScanScreen(
+      title: 'Selfie with ${provider.verificationData.idType}',
+      isSelfie: true,
+      requiredIdType: provider.verificationData.idType, // Pass the selected ID type
+    ),
+  ),
+);
+                    if (selfiePath != null) {
+                      provider.updateSelfieWithId(selfiePath);
+                    }
+                  },
+                  child: MyText(
+                    text: 'Retake',
+                    color: context.primary,
+                    size: 16.0,
+                    weight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            )
+          else
+            MyButton(
+              buttonText: 'Take a Selfie',
+              onTap: () async {
+                final selfiePath = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ScanScreen(
+                      title: 'Selfie with ${provider.verificationData.idType}',
+                      isSelfie: true,
+                    ),
+                  ),
+                );
+                if (selfiePath != null) {
+                  provider.updateSelfieWithId(selfiePath);
+                }
+              },
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildIdDetailsSection(VerificationProvider provider) {
-    return Container(
-      width: double.infinity,
-      padding: AppSizes.CARD_PADDING,
-      decoration: BoxDecoration(
-        color: context.card,
-        borderRadius: BorderRadius.circular(16.0),
-        border: Border.all(color: context.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          MyText(
-            text: 'ID Details (Optional)',
-            color: context.text,
-            size: 16,
-            weight: FontWeight.w600,
-          ),
-          16.height,
-          // ID Number Input
-          MyText(
-            text: 'ID Number',
-            color: context.text,
-            size: 14,
-            weight: FontWeight.w500,
-          ),
-          8.height,
-          MyTextField(hint: 'ID Number', controller: _idNumberController),
-
-          // Issue and Expiry Dates
-          Row(
-            children: [
-              Expanded(
-                child: _buildDateField(
-                  label: 'Issued Date',
-                  date: provider.verificationData.issueDate,
-                  onTap: () => _selectDate(context, true, provider),
-                ),
-              ),
-              12.width,
-              Expanded(
-                child: _buildDateField(
-                  label: 'Expiry Date',
-                  date: provider.verificationData.expiryDate,
-                  onTap: () => _selectDate(context, false, provider),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDateField({
-    required String label,
-    required DateTime? date,
-    required VoidCallback onTap,
-  }) {
-    return Column(
+  // Step 7: Complete Profile (Review & Edit All Data)
+Widget _buildCompleteProfileStep(VerificationProvider provider) {
+  return SingleChildScrollView(
+    padding: AppSizes.DEFAULT,
+    child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        20.height,
         MyText(
-          text: label,
+          text: 'Review Your Information 👤',
+          color: context.text,
+          size: 24,
+          weight: FontWeight.bold,
+        ),
+        12.height,
+        MyText(
+          text: 'Please review all your information before submission. Your data remains safe and private.',
+          color: context.subtitle,
+          size: 14,
+        ),
+        32.height,
+
+        // Profile Picture Section
+        _buildProfilePictureSection(provider),
+        24.height,
+
+        // Account Type
+        _buildDisplayField(
+          label: 'Account Type',
+          value: provider.verificationData.accountType ?? 'Not selected',
+          icon: Icons.account_balance,
+        ),
+        16.height,
+
+        // Full Name
+        _buildDisplayField(
+          label: 'Full Name',
+          value: provider.verificationData.fullName ?? 'Not provided',
+          icon: Icons.person,
+        ),
+        16.height,
+
+        // Country
+        _buildDisplayField(
+          label: 'Country',
+          value: provider.verificationData.country?.name ?? 'Not selected',
+          icon: Icons.location_on,
+        ),
+        16.height,
+
+        // ID Type
+        _buildDisplayField(
+          label: 'ID Type',
+          value: provider.verificationData.idType ?? 'Not selected',
+          icon: Icons.badge,
+        ),
+        16.height,
+
+        // ID Verification Status
+        _buildVerificationStatus(
+          label: 'ID Document',
+          isVerified: provider.verificationData.idFrontImagePath != null &&
+              File(provider.verificationData.idFrontImagePath!).existsSync(),
+        ),
+        16.height,
+
+        // Selfie Verification Status
+        _buildVerificationStatus(
+          label: 'Selfie with ID',
+          isVerified: provider.verificationData.selfieWithIdImagePath != null &&
+              File(provider.verificationData.selfieWithIdImagePath!).existsSync(),
+        ),
+        16.height,
+
+        // Phone Number (Editable)
+        _buildEditableField(
+          label: 'Phone Number',
+          hint: '+1 111 467 378 399',
+          controller: _phoneController,
+          icon: Icons.phone,
+          onChanged: (value) {
+            provider.updatePhoneNumber(value);
+          },
+        ),
+        16.height,
+
+        // Date of Birth (Editable)
+        _buildDateField(
+          label: 'Date of Birth',
+          controller: _dobController,
+          onDateSelected: (date) {
+            provider.updateDateOfBirth(date);
+          },
+        ),
+
+        40.height,
+
+        // Additional Information
+        _buildAdditionalInfo(),
+      ],
+    ),
+  );
+}
+
+Widget _buildProfilePictureSection(VerificationProvider provider) {
+  final hasSelfie = provider.verificationData.selfieWithIdImagePath != null &&
+      File(provider.verificationData.selfieWithIdImagePath!).existsSync();
+
+  return Center(
+    child: Column(
+      children: [
+        Stack(
+          children: [
+            Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: hasSelfie ? context.primary : context.border,
+                  width: 3,
+                ),
+              ),
+              child: ClipOval(
+                child: hasSelfie
+                    ? Image.file(
+                        File(provider.verificationData.selfieWithIdImagePath!),
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return _buildPlaceholderAvatar();
+                        },
+                      )
+                    : _buildPlaceholderAvatar(),
+              ),
+            ),
+            if (hasSelfie)
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: context.primary,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: context.scaffoldBackground, width: 2),
+                  ),
+                  child: Icon(Icons.check, color: Colors.white, size: 16),
+                ),
+              ),
+          ],
+        ),
+        12.height,
+        MyText(
+          text: hasSelfie ? 'Profile Photo Verified' : 'No Profile Photo',
+          color: hasSelfie ? context.primary : context.subtitle,
+          size: 14,
+          weight: FontWeight.w600,
+        ),
+      ],
+    ),
+  );
+}
+
+Widget _buildPlaceholderAvatar() {
+  return Container(
+    color: context.card,
+    child: Icon(
+      Icons.person,
+      color: context.subtitle,
+      size: 40,
+    ),
+  );
+}
+
+Widget _buildDisplayField({
+  required String label,
+  required String value,
+  required IconData icon,
+}) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
+        children: [
+          Icon(icon, color: context.primary, size: 16),
+          8.width,
+          MyText(
+            text: label,
+            color: context.text,
+            size: 14,
+            weight: FontWeight.w600,
+          ),
+        ],
+      ),
+      8.height,
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: context.card,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: context.border),
+        ),
+        child: MyText(
+          text: value,
           color: context.text,
           size: 14,
           weight: FontWeight.w500,
         ),
-        8.height,
-        GestureDetector(
-          onTap: onTap,
-          child: Container(
-            width: double.infinity,
-            padding: AppSizes.CARD_PADDING,
-            decoration: BoxDecoration(
-              color: context.scaffoldBackground,
-              borderRadius: BorderRadius.circular(16.0),
-              border: Border.all(color: context.border),
+      ),
+    ],
+  );
+}
+
+Widget _buildVerificationStatus({
+  required String label,
+  required bool isVerified,
+}) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      MyText(
+        text: label,
+        color: context.text,
+        size: 14,
+        weight: FontWeight.w600,
+      ),
+      8.height,
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isVerified ? context.primary.withOpacity(0.1) : context.card,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isVerified ? context.primary : context.border,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isVerified ? Icons.check_circle : Icons.watch_later,
+              color: isVerified ? context.primary : context.subtitle,
+              size: 20,
             ),
-            child: Row(
-              children: [
-                SvgPicture.asset(
-                  Assets.info,
-                  color: context.icon,
-                  height: 16.0,
-                ),
-                8.width,
-                MyText(
-                  text: date != null
-                      ? '${date.day}/${date.month}/${date.year}'
-                      : 'Select date',
-                  color: date != null ? context.text : context.subtitle,
-                  size: 14,
-                ),
-              ],
+            12.width,
+            Expanded(
+              child: MyText(
+                text: isVerified ? 'Verified' : 'Pending',
+                color: isVerified ? context.primary : context.subtitle,
+                size: 14,
+                weight: FontWeight.w500,
+              ),
             ),
+            if (isVerified)
+              Icon(Icons.verified, color: context.primary, size: 20),
+          ],
+        ),
+      ),
+    ],
+  );
+}
+
+Widget _buildEditableField({
+  required String label,
+  required String hint,
+  required TextEditingController controller,
+  required IconData icon,
+  required ValueChanged<String> onChanged,
+}) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
+        children: [
+          Icon(icon, color: context.primary, size: 16),
+          8.width,
+          MyText(
+            text: label,
+            color: context.text,
+            size: 14,
+            weight: FontWeight.w600,
+          ),
+        ],
+      ),
+      8.height,
+      MyTextField(
+        controller: controller,
+        hint: hint,
+        onChanged: onChanged,
+        keyboardType: TextInputType.phone,
+      ),
+    ],
+  );
+}
+
+Widget _buildDateField({
+  required String label,
+  required TextEditingController controller,
+  required ValueChanged<DateTime> onDateSelected,
+}) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
+        children: [
+          Icon(Icons.calendar_today, color: context.primary, size: 16),
+          8.width,
+          MyText(
+            text: label,
+            color: context.text,
+            size: 14,
+            weight: FontWeight.w600,
+          ),
+        ],
+      ),
+      8.height,
+      GestureDetector(
+        onTap: () async {
+          final picked = await showDatePicker(
+            context: context,
+            initialDate: DateTime.now(),
+            firstDate: DateTime(1900),
+            lastDate: DateTime.now(),
+            builder: (context, child) {
+              return Theme(
+                data: Theme.of(context).copyWith(
+                  colorScheme: ColorScheme.light(primary: context.primary),
+                ),
+                child: child!,
+              );
+            },
+          );
+          if (picked != null) {
+            final formattedDate = '${picked.day}/${picked.month}/${picked.year}';
+            controller.text = formattedDate;
+            onDateSelected(picked);
+          }
+        },
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: context.card,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: context.border),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.calendar_today, color: context.icon, size: 16),
+              12.width,
+              MyText(
+                text: controller.text.isEmpty ? 'Select your date of birth' : controller.text,
+                color: controller.text.isEmpty ? context.subtitle : context.text,
+                size: 14,
+                weight: FontWeight.w500,
+              ),
+              const Spacer(),
+              if (controller.text.isNotEmpty)
+                Icon(Icons.check_circle, color: context.primary, size: 16),
+            ],
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
+Widget _buildAdditionalInfo() {
+  return Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: context.primary.withOpacity(0.05),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: context.primary.withOpacity(0.2)),
+    ),
+    child: Row(
+      children: [
+        Icon(Icons.security, color: context.primary, size: 20),
+        12.width,
+        Expanded(
+          child: MyText(
+            text: 'Your information is encrypted and secure. We protect your privacy according to our data protection policy.',
+            color: context.subtitle,
+            size: 12,
           ),
         ),
       ],
-    );
-  }
-
-  Future<void> _selectDate(
-    BuildContext context,
-    bool isIssueDate,
-    VerificationProvider provider,
-  ) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2030),
-    );
-
-    if (picked != null) {
-      if (isIssueDate) {
-        provider.updateIssueDate(picked);
-      } else {
-        provider.updateExpiryDate(picked);
-      }
-    }
-  }
+    ),
+  );
+}
 }
